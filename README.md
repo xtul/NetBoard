@@ -2,7 +2,7 @@
 
 NetBoard is an imageboard API using ASP<span>.NET Core 3.1. It is a hobby project and heavily work-in-progress. Many things are subject to change.
 
-For a web interface, please see my [NetChan.Frontend](test) repository.
+For a web interface, please see my [NetChan.Frontend](https://github.com/xtul/NetChan.Frontend) repository.
 
 I started this project to learn to work with .NET technology stack. The primary focus is to make maintenance/expansion simple. For example, if a board has it's name changed, migration should be painless. Adding and customizing new boards should also be straightforward.
 

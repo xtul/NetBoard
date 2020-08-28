@@ -35,13 +35,13 @@ namespace NetBoard {
 			services.AddDbContext<ApplicationDbContext>(options => {
 				switch (_configuration["DatabaseType"]) {
 					case "PostgreSQL":
-						options.UseNpgsql(_configuration.GetConnectionString("PostgreSQL"), b => b.MigrationsAssembly("NetBoard.Backend"));
+						options.UseNpgsql(_configuration.GetConnectionString("PostgreSQL"), b => b.MigrationsAssembly("NetBoard.Model"));
 						break;
 					case "SqlServer":
-						options.UseSqlServer(_configuration.GetConnectionString("SqlServer"), b => b.MigrationsAssembly("NetBoard.Backend"));
+						options.UseSqlServer(_configuration.GetConnectionString("SqlServer"), b => b.MigrationsAssembly("NetBoard.Model"));
 						break;
 					case "MySQL":
-						options.UseMySQL(_configuration.GetConnectionString("MySQL"), b => b.MigrationsAssembly("NetBoard.Backend"));
+						options.UseMySQL(_configuration.GetConnectionString("MySQL"), b => b.MigrationsAssembly("NetBoard.Model"));
 						break;
 					default:
 						break;
