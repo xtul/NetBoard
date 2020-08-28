@@ -249,10 +249,10 @@ namespace NetBoard.Controllers.Generic {
 			// add thread data
 
 			// get poster count
-			var posterCount = posts.SelectMany(x => x.Responses).Select(x => x.PosterIP).Distinct().Count();
+			//var posterCount = posts?.SelectMany(x => x.Responses)?.Select(x => x.PosterIP)?.Distinct()?.Count() ?? 1;
 
 			var result = new Dictionary<string, object> {
-				{ "posterCount", posterCount },
+			//	{ "posterCount", posterCount },
 				{ "board", typeof(BoardPosts).Name.ToLower() },
 				{ "posts", posts }
 			};
