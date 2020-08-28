@@ -1,0 +1,140 @@
+﻿@page
+@using NetBoard.Pages.Admin
+@model PostModel
+@{
+	ViewData["Title"] = "Post management";
+}
+
+<div class="col-12">
+	@if (Model.Board != null || Model.PostId != 0) {
+		<h1>>>@Model.PostId on /@Model.Board/</h1>
+	} else {
+		<h1>Post</h1>
+		<p>You will need to provide extra data if you want to modify a post.</p>
+	}
+	@if (Model.FoundPostData == null) {
+		<hr />
+	}
+</div>
+@* if no board/id queries were found, ask to fill a form to create them *@
+@if (Model.Board == null || Model.PostId == 0) {
+	<div class="col-6">
+		<form id="account" method="post">
+			<div asp-validation-summary="All" class="text-danger"></div>
+			@if (ViewContext.ModelState.ErrorCount > 0) {
+				<hr />
+			}
+			<div class="form-group">
+				<label asp-for="Input.PostId"></label>
+				<input asp-for="Input.PostId" class="form-control" id="postId" />
+				<span asp-validation-for="Input.PostId" class="text-danger"></span>
+			</div>
+			<div class="form-group">
+				<label asp-for="Input.Board"></label>
+				<select class="form-control" id="board">
+					@{
+						if (Model.BoardOptions != null) {
+							foreach (var o in Model.BoardOptions) {
+								<option value="@o">@o</option>
+							}
+						}
+					}
+				</select>
+				<span asp-validation-for="Input.Board" class="text-danger"></span>
+			</div>
+			<div class="form-group">
+				<input id="getPostButton" type="button" onclick="tryGetPost(document.getElementById('board').value, document.getElementById('postId').value)" value="Get post" class="btn btn-primary btn-block" />
+			</div>
+		</form>
+	</div>
+} else {
+	@* if board/post was found, show details and options *@
+	if (Model.FoundPostData != null) {
+		var p = Model.FoundPostData;
+
+<div class="col-3">
+	<table class="table">
+		<tr>
+			<th>Image</th>
+			<td>@p.Image</td>
+		</tr>
+		<tr>
+			<th>Subject</th>
+			<td>@p.Subject</td>
+		</tr>
+		<tr>
+			<th>Poster IP</th>
+			<td>@p.PosterIP</td>
+		</tr>
+		<tr>
+			<th>Archived?</th>
+			<td>
+				@{if (p.Archived) {
+						@:✔️
+					} else {
+						@:❌
+					}
+				}
+			</td>
+		</tr>
+		<tr>
+			<th>Thread?</th>
+			<td>
+				@{if (p.Thread == null) {
+						@:✔️
+					} else {
+						@:❌
+					}
+						}
+			</td>
+		</tr>
+		<tr>
+			<th>Sticky?</th>
+			<td>
+				@{if (p.Sticky) {
+						@:✔️
+					} else {
+						@:❌
+					}
+						}
+			</td>
+		</tr>
+	</table>
+</div>
+<div class="col">
+	@Html.Raw(Html.Encode(p.Content).Replace("&#xA;", "<br/>"))
+</div>
+<div class="col-12">
+	@if (p.Archived) {
+		<a asp-action="ArchivePost" asp-all-route-data='@new Dictionary<string, string> { { "board", Model.Board }, { "id", Model.PostId.ToString() }, { "unarchive", "true" } }'>Un-archive</a> @:|
+	} else {
+		<a asp-action="ArchivePost" asp-all-route-data='@new Dictionary<string, string> { { "board", Model.Board }, { "id", Model.PostId.ToString() } }'>Archive</a> @:|
+	}
+	<a asp-action="DeletePost" asp-all-route-data='@new Dictionary<string, string> { { "board", Model.Board }, { "id", Model.PostId.ToString() } }'>Delete</a> |
+	<a asp-action="DeletePicture" asp-all-route-data='@new Dictionary<string, string> { { "board", Model.Board }, { "id", Model.PostId.ToString() } }'>Delete picture</a> |
+	@if (p.Sticky) {
+		<a asp-action="StickyPost" asp-all-route-data='@new Dictionary<string, string> { { "board", Model.Board }, { "id", Model.PostId.ToString() }, { "unstick", "true" } }'>Un-sticky</a> @:|
+	} else {
+		<a asp-action="StickyPost" asp-all-route-data='@new Dictionary<string, string> { { "board", Model.Board }, { "id", Model.PostId.ToString() } }'>Sticky</a> @:|
+	}
+	<a asp-action="Ban" asp-all-route-data='@new Dictionary<string, string> { { "ip", p.PosterIP } }'>Ban IP</a>
+</div>
+
+@* otherwise show error *@
+} else {
+	<p>The post with ID @Model.PostId on "@Model.Board" board was not found. <a id="back-link">Try again</a>.</p>
+}
+}
+
+<script>
+	var element = document.getElementById('back-link');
+	element.setAttribute('href', document.referrer);
+	element.onclick = function () {
+		history.back();
+		return false;
+	}
+
+	async function tryGetPost(board, postId) {
+		window.location.href = 'post?board=' + board + '&postId=' + postId;
+	}
+</script>

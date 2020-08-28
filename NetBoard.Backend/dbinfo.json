@@ -1,0 +1,8 @@
+{
+	"DatabaseType": "PostgreSQL",
+	"ConnectionStrings": {
+		"SqlServer": "",
+		"PostgreSQL": "Host=localhost;Database=NetBoard;Username=blnk;Password=HqMuReH4cCqDgowXbKgk",
+		"MySQL": ""
+	}
+}

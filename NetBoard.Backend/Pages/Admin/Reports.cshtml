@@ -1,0 +1,74 @@
+﻿@page
+@using NetBoard.Pages.Admin
+@using NetBoard.Model.Data
+@model ReportModel
+
+@{
+	ViewData["Title"] = "Reports";
+	var reports = (List<Report>)ViewData["ReportList"];
+}
+
+<div class="col-12">
+	<h1>Reports</h1>
+	<p>User-generated reports will be listed here. Note they're not automatically removed, so check regularly.</p>
+</div>
+
+<div class="col-12">
+	<table class="table">
+		<thead>
+			<tr>
+				<th>
+					@Html.DisplayNameFor(model => model.Id)
+				</th>
+				<th>
+					@Html.DisplayNameFor(model => model.Date)
+				</th>
+				<th>
+					@Html.DisplayNameFor(model => model.ReportingIP)
+				</th>
+				<th>
+					@Html.DisplayNameFor(model => model.PostBoard)
+				</th>
+				<th>
+					@Html.DisplayNameFor(model => model.PostId)
+				</th>
+				<th>
+					@Html.DisplayNameFor(model => model.Reason)
+				</th>
+				<th>
+					Actions
+				</th>
+			</tr>
+		</thead>
+		<tbody>
+			@if (Model != null && reports.Count > 0)
+				@foreach (var item in reports) {
+					<tr>
+						<td>
+							@Html.DisplayFor(modelItem => item.Id)
+						</td>
+						<td>
+							@Html.DisplayFor(modelItem => item.Date)
+						</td>
+						<td>
+							@Html.DisplayFor(modelItem => item.ReportingIP)
+						</td>
+						<td>
+							@Html.DisplayFor(modelItem => item.PostBoard)
+						</td>
+						<td>
+							@Html.DisplayFor(modelItem => item.PostId)
+						</td>
+						<td>
+							@Html.DisplayFor(modelItem => item.Reason)
+						</td>
+						<td>
+							<a asp-action="Post" asp-all-route-data='@new Dictionary<string, string> { { "board", item.PostBoard.ToLower() }, { "postId", item.PostId.ToString() } }'>Manage post</a> |
+							<a asp-action="DeleteReport" asp-all-route-data='@new Dictionary<string, string> { { "id", item.Id.ToString() } }'>Remove report</a> |
+							<a asp-action="Ban" asp-all-route-data='@new Dictionary<string, string> { { "ip", item.ReportingIP } }'>Ban reporting IP</a>
+						</td>
+					</tr>
+				}
+		</tbody>
+	</table>
+</div>

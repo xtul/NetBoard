@@ -1,0 +1,53 @@
+﻿@page
+@using NetBoard.Pages.Admin
+@using NetBoard.Model.Data
+@model SageModel
+
+@{
+	ViewData["Title"] = "Sages";
+	var sages = (List<Sage>)ViewData["SageList"];
+}
+
+<div class="col-12">
+	<h1>Sages</h1>
+	<p>Daily sages will be listed here. May give a hint when somebody is a regular shitposter. Removed every 24 hours.</p>
+</div>
+
+<div class="col-12">
+	<table class="table">
+		<thead>
+			<tr>
+				<th>
+					@Html.DisplayNameFor(model => model.Id)
+				</th>
+				<th>
+					@Html.DisplayNameFor(model => model.Board)
+				</th>
+				<th>
+					@Html.DisplayNameFor(model => model.TopicId)
+				</th>
+				<th>Actions</th>
+			</tr>
+		</thead>
+		<tbody>
+			@if (sages != null && sages.Count > 0)
+				@foreach (var sage in sages) {
+					<tr>
+						<td>
+							@Html.DisplayFor(modelItem => sage.Id)
+						</td>
+						<td>
+							@Html.DisplayFor(modelItem => sage.Board)
+						</td>
+						<td>
+							@Html.DisplayFor(modelItem => sage.TopicId)
+						</td>
+						<td>
+							<a asp-action="Post" asp-all-route-data='@new Dictionary<string, string> { { "board", sage.Board.ToLower() }, { "postId", sage.TopicId.ToString() } }'>Manage</a> |
+							<a asp-action="DeleteSage" asp-all-route-data='@new Dictionary<string, string> { { "id", sage.Id.ToString() } }'>Remove from list</a>
+						</td>
+					</tr>
+				}
+		</tbody>
+	</table>
+</div>

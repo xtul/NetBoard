@@ -1,0 +1,14 @@
+﻿[
+  {
+    "outputFile": "wwwroot/css/site.css",
+    "inputFile": "Styles/site.scss"
+  },
+  {
+    "outputFile": "Styles/spectre/spectre.css",
+    "inputFile": "Styles/site.scss"
+  },
+  {
+    "outputFile": "Styles/spectre/spectre.css",
+    "inputFile": "Styles/spectre/spectre.scss"
+  }
+]

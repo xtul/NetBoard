@@ -1,0 +1,107 @@
+﻿@page
+@using NetBoard.Pages.Admin
+@model PostCreateModel
+@{
+	ViewData["Title"] = "Create a new post";
+}
+
+<div class="col-12">
+	<h1>Post</h1>
+	<p>Use this to post officially. Using this form will create a post with a corresponding poster level.</p>
+	<hr />
+</div>
+<div class="col-12">
+	<form id="account" method="post" class="row">
+		<div class="col-12">
+			<div asp-validation-summary="All" class="text-danger"></div>
+			@if (ViewContext.ModelState.ErrorCount > 0) {
+				<hr />
+			}
+		</div>
+		<div class="col-sm-5 col-md-4">
+			<div class="form-group">
+				<label asp-for="Input.ThreadId">Thread ID. Leave at 0 if it's a new thread.</label>
+				<input asp-for="Input.ThreadId" value="0" class="form-control" id="threadId" />
+				<span asp-validation-for="Input.ThreadId" class="text-danger"></span>
+			</div>
+			<div class="form-group">
+				<label asp-for="Input.Board"></label>
+				<select class="form-control" id="board">
+					@{
+						if (Model.BoardOptions != null) {
+							foreach (var o in Model.BoardOptions)
+							{
+								<option value="@o">@o</option>
+							}
+						}
+					}
+				</select>
+				<span asp-validation-for="Input.Board" class="text-danger"></span>
+			</div>
+			<div class="form-group">
+				<label asp-for="Input.Subject"></label>
+				<input asp-for="Input.Subject" class="form-control" id="subject" />
+				<span asp-validation-for="Input.Subject" class="text-danger"></span>
+			</div>
+			<div class="form-group">
+				<label asp-for="Input.Options"></label>
+				<input asp-for="Input.Options" class="form-control" id="options" />
+				<span asp-validation-for="Input.Options" class="text-danger"></span>
+			</div>
+			<div class="form-group form-check form-check-inline">
+				<input asp-for="Input.Sticky" id="sticky" class="form-check-input"/>
+				<label asp-for="Input.Sticky" class="form-check-label"></label>
+				<span asp-validation-for="Input.Sticky" class="text-danger"></span>
+			</div>
+			<div class="form-group form-check form-check-inline">
+				<input asp-for="Input.Archived" id="archived" class="form-check-input" />
+				<label asp-for="Input.Archived" class="form-check-label"></label>
+				<span asp-validation-for="Input.Archived" class="text-danger"></span>
+			</div>
+		</div>
+		<div class="col-sm-5 col-md-4">
+			<div class="form-group">
+				<label asp-for="Input.Content"></label>
+				<textarea asp-for="Input.Content" class="form-control" id="content" rows="13"></textarea>
+				<span asp-validation-for="Input.Content" class="text-danger"></span>
+			</div>
+		</div>
+		<div class="form-group col-sm-10 col-md-8">
+			<input id="getPostButton" type="button" onclick="tryCreatePost(document.getElementById('board').value, document.getElementById('threadId').value)" value="Create administrative post" class="btn btn-primary btn-block" />
+		</div>
+	</form>
+</div>
+
+<script>
+	var g = function (id) { return document.getElementById(id); };
+
+	async function tryCreatePost(board, postId) {
+		var url = "/" + board + "/admin/thread/";
+
+		var postBody = {
+			archived: g('archived').checked,
+			content: g('content').value,
+			name: "@HttpContext.User.Identity.Name",
+			options: g('options').value,
+			sticky: g('sticky').checked,
+			thread: null
+		}
+
+		if (postId != 0) {
+			url = "/" + board + "admin/response" + postId;
+			postBody.thread = postId;
+		}
+		console.log("posting to " + url);
+		console.log("body:");
+		console.log(postBody);
+
+		var xhr = new XMLHttpRequest();
+		xhr.open("POST", url, true);
+		xhr.setRequestHeader('Content-Type', 'application/json');
+		xhr.send(JSON.stringify(postBody));
+		xhr.onload = function () {
+			var response = JSON.parse(this.responseText);
+			window.location.href = 'post?board=' + board + '&postId=' + response.id;
+		};
+	}
+</script>

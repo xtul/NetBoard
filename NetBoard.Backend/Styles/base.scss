@@ -1,0 +1,61 @@
+﻿html {
+	height:100%;
+}
+
+body {
+	background: rgb(255,255,255);
+	background: linear-gradient(0deg, $secondary-color 75%, $primary-color 100%);
+}
+
+p {
+	line-height:1.3;
+	text-align:justify;
+}
+
+
+#main-page {
+	padding-top:5vh;
+	max-width:80%;
+}
+
+.logo {
+	height:128px;
+	padding-top:2rem;
+}
+
+.vw-100 {
+	width:100vw;
+}
+
+.card-header {
+	padding:0 !important;
+}
+
+.card-title {
+	background-color:$secondary-color-light;
+	padding:0.5rem;
+	padding-left:1rem;
+}
+
+.card-subtitle {
+	padding-left: 1rem;
+	padding-right: 1rem;
+	font-size: 1rem;
+}
+
+.quote {
+	color:#789922;
+}
+
+form {
+	margin:1rem;
+}
+
+button {
+	padding:0.5rem;
+	width:100%;
+}
+
+input:not([type=checkbox]) {
+	width: 100%;
+}

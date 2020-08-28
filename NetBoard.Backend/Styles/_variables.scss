@@ -1,0 +1,18 @@
+﻿/* colors */
+$blue: #00AFF0;
+$orange: #83D029;
+$green: #F1511B;
+$yellow: #FBBC09;
+
+	/* light versions */
+	$blue-light: lighten( $blue, 25% );
+	$orange-light: lighten( $orange, 25% );
+	$green-light: lighten( $green, 25% );
+	$yellow-light: lighten( $yellow, 25% );
+
+	/* dark versions */
+	$blue-dark: darken( $blue, 25% );
+	$orange-dark: darken( $orange, 25% );
+	$green-dark: darken( $green, 25% );
+	$yellow-dark: darken( $yellow, 25% );
+
