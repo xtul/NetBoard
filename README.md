@@ -43,7 +43,9 @@ The only tested method is to deploy NetBoard on your own server following Micros
 Any help is greatly appreciated. Feel free to contribute to the code or report issues. 
 
 To make changes to the codebase, you will need:
+
 `Visual Studio 2019` - to edit and compile the project file (free version is fine),
+
 `PostgreSQL 12` - or other supported RDBMS.
 
 Enter `NetBoard.Backend` directory and rename `appsettings.default.json` to `appsettings.json`. Modify to your needs (eg. database connection string and currently used database).
