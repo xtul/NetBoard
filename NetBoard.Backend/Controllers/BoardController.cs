@@ -227,6 +227,7 @@ namespace NetBoard.Controllers.Generic {
 											.OrderBy(x => x.PostedOn)
 											.ToListAsync();
 
+			var posterCount = 1;
 			if (responses.Count > 0) {
 				foreach (var r in responses) {
 					var rDTO = new PostStructure {
@@ -244,15 +245,15 @@ namespace NetBoard.Controllers.Generic {
 					}
 					posts.Add(rDTO);
 				}
+				posterCount = responses.Select(x => x.PosterIP)?.Distinct()?.Count() ?? 1;
 			}
 
 			// add thread data
 
 			// get poster count
-			//var posterCount = posts?.SelectMany(x => x.Responses)?.Select(x => x.PosterIP)?.Distinct()?.Count() ?? 1;
 
 			var result = new Dictionary<string, object> {
-			//	{ "posterCount", posterCount },
+				{ "posterCount", posterCount },
 				{ "board", typeof(BoardPosts).Name.ToLower() },
 				{ "posts", posts }
 			};
