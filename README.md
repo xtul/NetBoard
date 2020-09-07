@@ -20,7 +20,7 @@ I started this project to learn to work with .NET technology stack. The primary 
  - Reporting posts for administration
 
 ### Partially done
-- Administration panel *(will be replaced by the NetChan.Frontend project)*
+- Administration panel *(will be replaced by the NetChan frontend project)*
 - OAuth2 authorization *(API can be protected but logging in still needs work)*
 - Multiple RDBMS support *(only PostgreSQL was tested)*
 
@@ -35,7 +35,7 @@ I started this project to learn to work with .NET technology stack. The primary 
 
 NetBoard is not yet ready for production.
 
-The only tested method is to deploy NetBoard on your own server following Microsoft's documentation. A Docker image will be released when the project is ready.
+The only tested method is to deploy NetBoard on your own server following Microsoft's documentation. A Docker image will be released when the project is production-ready.
 
 
 # Contributing
@@ -48,7 +48,9 @@ To make changes to the codebase, you will need:
 
 `PostgreSQL 12` - or other supported RDBMS.
 
-Enter `NetBoard.Backend` directory and rename `appsettings.default.json` to `appsettings.json`. Modify to your needs (eg. database connection string and currently used database).
+Open Visual Studio and open a project from repository. Point it to this repository and let it download.
+
+Enter `NetBoard.Backend` project and rename `appsettings.default.json` to `appsettings.json`. Modify to your needs (eg. database connection string and currently used database).
 
 After downloading all required NuGet packages, enter NuGet console. Migrate with `add-migration Initial` and `update-database`.
 
