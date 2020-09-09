@@ -144,7 +144,8 @@ namespace NetBoard.Controllers.Generic {
 								Content = r.Content,
 								Name = r.Name,
 								PostedOn = r.PostedOn,
-								PosterLevel = r.PosterLevel
+								PosterLevel = r.PosterLevel,
+								Thread = thread.Id
 							};
 							dto.Content = dto.Content.ReduceLength(previewLength, cutoffText);
 							if (r.Image != null) {
@@ -209,7 +210,8 @@ namespace NetBoard.Controllers.Generic {
 				Content = op.Content,
 				PostedOn = op.PostedOn,
 				LastPostDate = op.LastPostDate,
-				PosterLevel = op.PosterLevel
+				PosterLevel = op.PosterLevel,
+				Thread = op.Id
 			};
 			if (op.Image != null) {
 				opDTO.Image = op.Image;
@@ -236,7 +238,8 @@ namespace NetBoard.Controllers.Generic {
 						Content = r.Content,
 						PostedOn = r.PostedOn,
 						LastPostDate = r.LastPostDate,
-						PosterLevel = r.PosterLevel
+						PosterLevel = r.PosterLevel,
+						Thread = op.Id
 					};
 					if (r.Image != null) {
 						rDTO.Image = r.Image;
