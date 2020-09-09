@@ -1,25 +1,19 @@
-﻿using NetBoard.Controllers.Helpers;
-using NetBoard.Model.Data;
-using NetBoard.Model.ExtensionMethods;
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Org.BouncyCastle.Utilities.Net;
+using NetBoard.Controllers.Helpers;
+using NetBoard.Model.Data;
+using NetBoard.Model.ExtensionMethods;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using static NetBoard.Model.Data.PostStructure;
-using Microsoft.Extensions.DependencyInjection;
-using System.Text.RegularExpressions;
-using System.IO;
-using System.Drawing;
 using static NetBoard.Controllers.Helpers.ImageManipulation;
-using System.Drawing.Imaging;
-using SixLabors.ImageSharp.Processing;
+using static NetBoard.Model.Data.PostStructure;
 
 namespace NetBoard.Controllers.Generic {
 	[ApiController]
@@ -56,6 +50,10 @@ namespace NetBoard.Controllers.Generic {
 		#region GET
 
 		// GET: Entity/2
+		/// <summary>
+		/// Gets all threads from provided board.
+		/// </summary>
+		/// <param name="mode">Either 'catalog', 'archive' or page number.</param>
 		[HttpGet("{mode}")]
 		public virtual async Task<ActionResult<Dictionary<string, object>>> GetThreads(string mode) {
 			var catalog = false;
@@ -185,15 +183,17 @@ namespace NetBoard.Controllers.Generic {
 		}
 
 		// GET: Entity/thread/42
+		/// <summary>
+		/// Gets the thread and all responses.
+		/// </summary>
 		[HttpGet("thread/{id}")]
 		public virtual async Task<ActionResult<Dictionary<string, object>>> GetThread(int id) {
-			// check if this post even exists
-			if (!PostExists(id)) return NotFound($"There's no thread with ID {id}.");
+			// check if this thread exists
+			if (!ThreadExists(id))
+				return NotFound($"There's no thread with ID {id}.");
 
-			// check if there's a topic with this ID
-			var op = await	_context.Set<BoardPosts>()
+			var op = await _context.Set<BoardPosts>()
 									.AsNoTracking()
-									.Where(x => x.Thread == null)
 									.Where(x => x.Id == id)
 									.FirstOrDefaultAsync();
 
@@ -221,13 +221,12 @@ namespace NetBoard.Controllers.Generic {
 			};
 
 			// add responses if they exist
-			var responses = await	_context.Set<BoardPosts>()
+			var responses = await _context.Set<BoardPosts>()
 											.AsNoTracking()
 											.Where(x => x.Thread == id)
 											.OrderBy(x => x.PostedOn)
 											.ToListAsync();
 
-			var posterCount = 1;
 			if (responses.Count > 0) {
 				foreach (var r in responses) {
 					var rDTO = new PostStructure {
@@ -245,15 +244,11 @@ namespace NetBoard.Controllers.Generic {
 					}
 					posts.Add(rDTO);
 				}
-				posterCount = responses.Select(x => x.PosterIP)?.Distinct()?.Count() ?? 1;
 			}
 
 			// add thread data
 
-			// get poster count
-
 			var result = new Dictionary<string, object> {
-				{ "posterCount", posterCount },
 				{ "board", typeof(BoardPosts).Name.ToLower() },
 				{ "posts", posts }
 			};
@@ -261,7 +256,67 @@ namespace NetBoard.Controllers.Generic {
 			return result;
 		}
 
+		// GET: Entity/thread/42/149921324
+		/// <summary>
+		/// Gets all posts that are after certain ID.
+		/// </summary>
+		[HttpGet("thread/{id}/{lastId}")]
+		public virtual async Task<ActionResult<PostStructure[]>> GetNewPosts(int threadId, int lastId) {
+			// check if this thread exists
+			if (!ThreadExists(threadId))
+				return NotFound($"There's no thread with ID {threadId}.");
+
+			// get new responses
+			var responses = await _context.Set<BoardPosts>()
+									.AsNoTracking()
+									.Where(x => x.Thread == threadId && x.Id > lastId)
+									.OrderBy(x => x.PostedOn)
+									.ToListAsync();
+
+			if (responses.Count == 0) {
+				return NotFound("There are no new responses");
+			}
+
+			var responsesDto = new List<PostStructure>();
+			foreach (var r in responses) {
+				var rDTO = new PostStructure {
+					Id = r.Id,
+					Subject = r.Subject,
+					Name = r.Name,
+					Content = r.Content,
+					PostedOn = r.PostedOn,
+					LastPostDate = r.LastPostDate,
+					PosterLevel = r.PosterLevel
+				};
+				if (r.Image != null) {
+					rDTO.Image = r.Image;
+					rDTO.SpoilerImage = r.SpoilerImage;
+				}
+				responsesDto.Add(rDTO);
+			}
+
+			return responsesDto.ToArray();
+		}
+
+		// GET: Entity/thread/42/posterCount
+		/// <summary>
+		/// Gets the count of posters in given thread.
+		/// </summary>
+		[HttpGet("thread/{id}/posterCount")]
+		public virtual async Task<int> GetPosterCount(int id) {
+			var query = await GetThread(id);
+			var responses = query.Value["posts"] as List<PostStructure>;
+			if (responses.Count < 2) {
+				return 1;
+			} else {
+				return responses.Select(x => x.PosterIP).Distinct().Count();
+			}
+		}
+
 		// GET: Entity/post/42
+		/// <summary>
+		/// Gets a single post.
+		/// </summary>
 		[HttpGet("post/{id}")]
 		public virtual async Task<ActionResult<PostStructure>> GetPost(int id) {
 			var post = await _context.Set<BoardPosts>().FindAsync(id);
@@ -287,6 +342,10 @@ namespace NetBoard.Controllers.Generic {
 		}
 
 		// GET: Entity/post/42/thread
+		/// <summary>
+		/// Gets a thread of provided post <paramref name="id"/>.
+		/// </summary>
+		/// <returns>Thread ID.</returns>
 		[HttpGet("post/{id}/thread")]
 		public virtual async Task<ActionResult> GetPostThread(int id) {
 			var post = await _context.Set<BoardPosts>().FindAsync(id);
@@ -446,7 +505,7 @@ namespace NetBoard.Controllers.Generic {
 			return _context.Set<BoardPosts>().Any(e => e.Id == id);
 		}
 
-		private bool TopicExists(int id) {
+		private bool ThreadExists(int id) {
 			return _context.Set<BoardPosts>().Any(e => e.Id == id && e.Thread == null);
 		}
 
@@ -620,7 +679,7 @@ namespace NetBoard.Controllers.Generic {
 
 			// response posting mode
 			if (threadId != 0) {
-				if (!TopicExists(threadId)) {
+				if (!ThreadExists(threadId)) {
 					return NotFound($"There is no thread with ID {threadId}.");
 				}
 
