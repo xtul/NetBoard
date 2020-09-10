@@ -145,12 +145,13 @@ namespace NetBoard.Controllers.Generic {
 								Name = r.Name,
 								PostedOn = r.PostedOn,
 								PosterLevel = r.PosterLevel,
+								SpoilerImage = null,
 								Thread = thread.Id
 							};
 							dto.Content = dto.Content.ReduceLength(previewLength, cutoffText);
 							if (r.Image != null) {
 								dto.Image = r.Image;
-								dto.SpoilerImage = null;
+								dto.SpoilerImage = r.SpoilerImage;
 							}
 							tempList.Insert(0, dto); // .Add() would reverse the list
 						}
