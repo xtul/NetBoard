@@ -46,12 +46,12 @@ namespace NetBoard.Controllers.Helpers {
 						 .Resize(newWidth, newHeight));
 
 					var filenameNoExt = Path.GetFileNameWithoutExtension(imageUri);
-					var fileExt = Path.GetExtension(imageUri);
+					var fileExt = ".jpg";
 					var thumbName = filenameNoExt + "s" + fileExt;
 
 					image.Save(Path.Combine(Path.GetDirectoryName(imageUri), thumbName));
 				}
-			} catch { return "Error when storing image - make sure "; }
+			} catch { return "Error when storing image thumbnail."; }
 
 			return imageUri.ToRelativePath("wwwroot");
 		}
