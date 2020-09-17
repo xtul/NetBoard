@@ -265,15 +265,15 @@ namespace NetBoard.Controllers.Generic {
 		/// Gets all posts that are after certain ID.
 		/// </summary>
 		[HttpGet("thread/{id}/{lastId}")]
-		public virtual async Task<ActionResult<PostStructure[]>> GetNewPosts(int threadId, int lastId) {
+		public virtual async Task<ActionResult<PostStructure[]>> GetNewPosts(int id, int lastId) {
 			// check if this thread exists
-			if (!ThreadExists(threadId))
-				return NotFound($"There's no thread with ID {threadId}.");
+			if (!ThreadExists(id))
+				return NotFound($"There's no thread with ID {id}.");
 
 			// get new responses
 			var responses = await _context.Set<BoardPosts>()
 									.AsNoTracking()
-									.Where(x => x.Thread == threadId && x.Id > lastId)
+									.Where(x => x.Thread == id && x.Id > lastId)
 									.OrderBy(x => x.PostedOn)
 									.ToListAsync();
 
