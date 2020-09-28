@@ -12,6 +12,7 @@ I started this project to learn to work with .NET technology stack. The primary 
  - Reading boards and their pages, threads, single posts
  - "Classic" and Catalog board view
  - Making new threads and responding to existing ones
+ - Posting protected by hCaptcha
  - Setting separate rules for boards, such as max pages or images
  - Password-based post deletion
  - Posting images
@@ -27,7 +28,6 @@ I started this project to learn to work with .NET technology stack. The primary 
 ### To do
 
 - User banning
-- Captcha *(likely using hCaptcha - currently IP rate limiter is used as a substitute)*
 - Automatic DB table seeding
 - ...
 
