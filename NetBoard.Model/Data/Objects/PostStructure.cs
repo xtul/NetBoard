@@ -88,6 +88,8 @@ namespace NetBoard.Model.Data {
 		[NotMapped]
 		[StringLength(32)]
 		public string Options { get; set; }
+		[NotMapped]
+		public string CaptchaCode { get; set; }
 		public bool? PastLimits { get; set; }
 
 

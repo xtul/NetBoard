@@ -1,16 +1,21 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using Flurl;
+using Flurl.Http;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NetBoard.Controllers.Helpers;
 using NetBoard.Model.Data;
 using NetBoard.Model.ExtensionMethods;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using static NetBoard.Controllers.Helpers.ImageManipulation;
 using static NetBoard.Model.Data.PostStructure;
@@ -376,14 +381,22 @@ namespace NetBoard.Controllers.Generic {
 
 		// POST: Entity
 		[HttpPost]
-		public virtual async Task<ActionResult<BoardPosts>> CreateThread([Bind("Image, Content, Name, Password, Subject, Options")] BoardPosts entity) {
-			return await Post(entity);
+		public virtual async Task<ActionResult<BoardPosts>> CreateThread([Bind("Image, Content, Name, Password, Subject, Options, CaptchaCode")] BoardPosts entity) {
+			if (await Captcha.IsCaptchaValid(entity.CaptchaCode, _configuration)) {
+				return await Post(entity);
+			} else {
+				return BadRequest("Invalid captcha");
+			}
 		}		
 
 		// POST: Entity/thread/42
 		[HttpPost("thread/{threadId}")]
-		public virtual async Task<ActionResult<BoardPosts>> CreateResponse([Bind("Content, Name, Password, Options")] BoardPosts entity, int threadId) {
-			return await Post(entity, threadId);
+		public virtual async Task<ActionResult<BoardPosts>> CreateResponse([Bind("Content, Name, Password, Options, CaptchaCode")] BoardPosts entity, int threadId) {
+			if (await Captcha.IsCaptchaValid(entity.CaptchaCode, _configuration)) {
+				return await Post(entity, threadId);
+			} else {
+				return BadRequest("Invalid captcha");
+			}
 		}
 
 		private async Task<ActionResult<BoardPosts>> Post(BoardPosts entity, int threadId = 0) {
