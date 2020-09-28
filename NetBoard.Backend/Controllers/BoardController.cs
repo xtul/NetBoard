@@ -436,7 +436,7 @@ namespace NetBoard.Controllers.Generic {
 				string.Format("A post /{0}/{1} was made. It's a {2}.",
 								typeof(BoardPosts).Name.ToLower(),
 								entity.Id,
-								entity.Thread == null ? "new thread" : "response to /" + typeof(BoardPosts).Name.ToLower() + "/" + entity.Thread
+								entity.Thread == null ? "new thread" : "response to /" + typeof(BoardPosts).Name.ToLower() + "/thread/" + entity.Thread
 				)
 			);
 
@@ -634,7 +634,7 @@ namespace NetBoard.Controllers.Generic {
 
 			// since everything is OK, save everything to DB
 			// DB needs a relative path
-			var relativeImagePath = Path.Combine(newFilePath, newFileName).ToRelativePath("wwwroot");
+			var relativeImagePath = Path.Combine(newFilePath, newFileName.Replace(" ", "_")).ToRelativePath("wwwroot");
 			queueEntry.AssignedPost = entity.Id;
 			entity.Image = relativeImagePath;
 
