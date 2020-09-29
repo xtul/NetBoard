@@ -626,7 +626,7 @@ namespace NetBoard.Controllers.Generic {
 			}
 			// skip timestamp that was added in image queue
 			var finalFileName = Path.GetFileName(queueEntry.Filename).Split('.').Skip(1).ToArray();
-			var newFileName = string.Join(".", finalFileName);
+			var newFileName = string.Join(".", finalFileName).Replace(" ", "_");
 			System.IO.File.Move(filePath, Path.Combine(newFilePath, newFileName));
 
 			// generate a thumbnail and save it to directory alongside original
@@ -634,7 +634,7 @@ namespace NetBoard.Controllers.Generic {
 
 			// since everything is OK, save everything to DB
 			// DB needs a relative path
-			var relativeImagePath = Path.Combine(newFilePath, newFileName.Replace(" ", "_")).ToRelativePath("wwwroot");
+			var relativeImagePath = Path.Combine(newFilePath, newFileName).ToRelativePath("wwwroot");
 			queueEntry.AssignedPost = entity.Id;
 			entity.Image = relativeImagePath;
 
