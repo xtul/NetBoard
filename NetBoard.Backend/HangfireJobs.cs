@@ -13,6 +13,9 @@ using Newtonsoft.Json;
 using NetBoard.ExtensionMethods;
 using System.Reflection;
 using NetBoard.Controllers.Helpers;
+using Microsoft.AspNetCore.Mvc;
+using System.Diagnostics;
+using Flurl.Http;
 
 namespace NetBoard {
 	public class HangfireJobs {
@@ -55,6 +58,15 @@ namespace NetBoard {
 			ImageManipulation.DeleteTempImages(imageFiles);
 			_context.ImageQueue.RemoveRange(obsoleteEntries);
 			await _context.SaveChangesAsync();
+		}
+
+		public async Task DeleteArchivedThreadsAsync() {
+			foreach (var board in BoardFinder.GetBoardsAsStrings()) {
+				try {
+					await $"http://localhost:5934/api/{board}/del"
+						.PostAsync(null);
+				} catch { }
+			}
 		}
 
 		public async Task SeedDB() {

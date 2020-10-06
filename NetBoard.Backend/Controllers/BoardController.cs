@@ -500,6 +500,29 @@ namespace NetBoard.Controllers.Generic {
 
 		#region Tools
 
+		// POST: Entity/del
+		/// <summary>
+		/// Deletes archived threads in this board. Localhost only.
+		/// </summary>
+		[HttpPost("del")]
+		[LoopbackOnly]
+		public virtual async Task RemoveArchived() {
+			// I regret deciding on this approach to generic controller. I regret it so much.
+			var deleteList = new List<BoardPosts>();
+
+			var archived = await _context.Set<BoardPosts>().Where(x => x.Archived).ToArrayAsync();
+
+			foreach (var thread in archived) {
+				var archivedResponses = await _context.Set<BoardPosts>().Where(x => x.Thread == thread.Id).ToArrayAsync();
+				deleteList.AddRange(archivedResponses);
+			}
+			deleteList.AddRange(archived);
+
+			_context.Set<BoardPosts>().RemoveRange(deleteList);
+
+			await _context.SaveChangesAsync();
+		}
+
 		/// <summary>
 		/// Various stuff to clean up incoming entities, eg. nullify SpoilerImage if no Image was provided.
 		/// </summary>
@@ -522,6 +545,9 @@ namespace NetBoard.Controllers.Generic {
 			return _context.Set<BoardPosts>().Any(e => e.Id == id && e.Thread == null);
 		}
 
+		/// <summary>
+		/// Default action on accessing the board. Returns the full name of the board.
+		/// </summary>
 		public virtual string GetBoardName() {
 			return BoardName;
 		}
@@ -568,23 +594,21 @@ namespace NetBoard.Controllers.Generic {
 			response.Content = response.Content.Replace("\r", "");
 			response.Content = response.Content.Trim('\n');
 
-			thread.ResponseCount++;
-			if (response.Image != null) {
-				thread.ImageCount++;
+			var isSaged = !string.IsNullOrEmpty(response.Options) && response.Options.ToUpper() == "SAGE";
+
+			// if saged, save it for administration
+			if (isSaged) {
+				_context.Sages.Add(new Sage {
+					TopicId = thread.Id,
+					Board = typeof(BoardPosts).Name
+				});
 			}
 
-			if (response.PastLimits == true || (response.Options != null && response.Options.ToUpper() == "SAGE")) {
-				// prevent bumping of the topic
-				if (!response.PastLimits == true) {
-					// if saged, save it for administration
-					_context.Sages.Add(new Sage {
-						TopicId = thread.Id,
-						Board = typeof(BoardPosts).Name
-					});
-				}
-			} else {
+			// bump the thread 
+			if (thread.PastLimits.Value == false && !isSaged) {
 				thread.LastPostDate = DateTime.UtcNow;
 			}
+			
 			_context.Set<BoardPosts>().Add(response);
 		}
 
