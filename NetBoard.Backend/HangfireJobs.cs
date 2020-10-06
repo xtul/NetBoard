@@ -37,6 +37,11 @@ namespace NetBoard {
 		}
 		#endregion Constructor
 
+		public void EnsureDatabase() {
+			_context.Database.Migrate();
+		}
+
+
 		public async Task CleanupImageQueue() {
 			// clean orphaned and assigned images
 			var obsoleteEntries = await _context.ImageQueue

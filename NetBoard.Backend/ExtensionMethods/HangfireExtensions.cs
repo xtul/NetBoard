@@ -37,6 +37,7 @@ namespace NetBoard.ExtensionMethods {
 		}
 
 		public static void RunHangfireJobs() {
+			BackgroundJob.Enqueue<HangfireJobs>(j => j.EnsureDatabase()); // always run on startup - migrates the database with newest available migration
 			BackgroundJob.Enqueue<HangfireJobs>(j => j.SeedDB()); // always run on startup - in case of empty database
 			RecurringJob.AddOrUpdate<HangfireJobs>(j => j.CleanupImageQueue(), "*/5 * * * *");
 		}

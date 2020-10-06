@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NetBoard.Controllers.Helpers;
@@ -256,9 +257,11 @@ namespace NetBoard.Controllers.Generic {
 			}
 
 			// add thread data
+			var threadInfo = await GetThreadInfo(id);
 
 			var result = new Dictionary<string, object> {
 				{ "board", typeof(BoardPosts).Name.ToLower() },
+				{ "data", threadInfo },
 				{ "posts", posts }
 			};
 
@@ -270,24 +273,24 @@ namespace NetBoard.Controllers.Generic {
 		/// Gets all posts that are after certain ID.
 		/// </summary>
 		[HttpGet("thread/{id}/{lastId}")]
-		public virtual async Task<ActionResult<PostStructure[]>> GetNewPosts(int id, int lastId) {
+		public virtual async Task<ActionResult<Dictionary<string, object>>> GetNewPosts(int id, int lastId) {
 			// check if this thread exists
 			if (!ThreadExists(id))
 				return NotFound($"There's no thread with ID {id}.");
 
 			// get new responses
-			var responses = await _context.Set<BoardPosts>()
+			var replies = await _context.Set<BoardPosts>()
 									.AsNoTracking()
 									.Where(x => x.Thread == id && x.Id > lastId)
 									.OrderBy(x => x.PostedOn)
 									.ToListAsync();
 
-			if (responses.Count == 0) {
-				return NotFound("There are no new responses");
+			if (replies.Count == 0) {
+				return NotFound("No new replies.");
 			}
 
-			var responsesDto = new List<PostStructure>();
-			foreach (var r in responses) {
+			var repliesDto = new List<PostStructure>();
+			foreach (var r in replies) {
 				var rDTO = new PostStructure {
 					Id = r.Id,
 					Subject = r.Subject,
@@ -301,25 +304,18 @@ namespace NetBoard.Controllers.Generic {
 					rDTO.Image = r.Image;
 					rDTO.SpoilerImage = r.SpoilerImage;
 				}
-				responsesDto.Add(rDTO);
+				repliesDto.Add(rDTO);
 			}
 
-			return responsesDto.ToArray();
-		}
+			var threadInfo = await GetThreadInfo(id);
 
-		// GET: Entity/thread/42/posterCount
-		/// <summary>
-		/// Gets the count of posters in given thread.
-		/// </summary>
-		[HttpGet("thread/{id}/posterCount")]
-		public virtual async Task<int> GetPosterCount(int id) {
-			var query = await GetThread(id);
-			var responses = query.Value["posts"] as List<PostStructure>;
-			if (responses.Count < 2) {
-				return 1;
-			} else {
-				return responses.Select(x => x.PosterIP).Distinct().Count();
-			}
+			var result = new Dictionary<string, object>() {
+				{ "board", typeof(BoardPosts).Name.ToLower() },
+				{ "data", threadInfo },
+				{ "posts", repliesDto }
+			};
+
+			return result;
 		}
 
 		// GET: Entity/post/42
@@ -639,6 +635,38 @@ namespace NetBoard.Controllers.Generic {
 			entity.Image = relativeImagePath;
 
 			return entity;
+		}
+
+		/// <summary>
+		/// Gets image, response and unique poster count of provided thread ID.
+		/// </summary>
+		private async Task<Dictionary<string, int>> GetThreadInfo(int threadId) {
+			var imageCount = await _context.Set<BoardPosts>()
+									.AsNoTracking()
+									.Where(x => (x.Thread == threadId || x.Id == threadId) && !string.IsNullOrEmpty(x.Image))
+									.CountAsync();
+			var responseCount = await _context.Set<BoardPosts>()
+									.AsNoTracking()
+									.Where(x => x.Thread == threadId)
+									.CountAsync();
+			var posters = await _context.Set<BoardPosts>()
+									.AsNoTracking()
+									.Where(x => x.Thread == threadId)
+									.Select(p => p.PosterIP)
+									.ToArrayAsync();
+			var uniquePosters = posters.Distinct().Count();
+			var threads = await _context.Set<BoardPosts>().AsNoTracking().Where(x => x.Thread == null).OrderByDescending(x => x.LastPostDate).Select(x => x.Id).ToArrayAsync();
+			var threadIndex = Array.IndexOf(threads, threadId);
+			var page = ((threadIndex - threadIndex % 10) / 10) + 1;
+
+			var result = new Dictionary<string, int>() {
+				{ "imageCount", imageCount },
+				{ "responseCount", responseCount },
+				{ "uniquePosters", uniquePosters },
+				{ "page", page }
+			};
+
+			return result;
 		}
 
 		#endregion Tools
