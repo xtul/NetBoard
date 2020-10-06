@@ -453,6 +453,10 @@ namespace NetBoard.Controllers.Generic {
 		// POST: Entity/report
 		[HttpPost("report")]
 		public virtual async Task<ActionResult> ReportPost([Bind("PostID, Reason")] Report report) {
+			if (!await Captcha.IsCaptchaValid(report.CaptchaCode, _configuration)) {
+				return BadRequest("Invalid captcha");
+			}
+
 			if (!PostExists(report.PostId)) {
 				return BadRequest($"There is no post with ID {report.PostId}.");
 			}

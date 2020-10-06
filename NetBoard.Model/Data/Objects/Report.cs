@@ -15,5 +15,7 @@ namespace NetBoard.Model.Data {
 		public int PostId { get; set; }
 		[StringLength(128)]
 		public string Reason { get; set; }
+		[NotMapped]
+		public string CaptchaCode { get; set; }
 	}
 }
