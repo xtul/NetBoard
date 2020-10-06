@@ -378,7 +378,7 @@ namespace NetBoard.Controllers.Generic {
 		// POST: Entity
 		[HttpPost]
 		public virtual async Task<ActionResult<BoardPosts>> CreateThread([Bind("Image, Content, Name, Password, Subject, Options, CaptchaCode")] BoardPosts entity) {
-			if (await Captcha.IsCaptchaValid(entity.CaptchaCode, _configuration)) {
+			if (string.IsNullOrEmpty(entity.CaptchaCode) || await Captcha.IsCaptchaValid(entity.CaptchaCode, _configuration)) {
 				return await Post(entity);
 			} else {
 				return BadRequest("Invalid captcha");
@@ -388,7 +388,7 @@ namespace NetBoard.Controllers.Generic {
 		// POST: Entity/thread/42
 		[HttpPost("thread/{threadId}")]
 		public virtual async Task<ActionResult<BoardPosts>> CreateResponse([Bind("Content, Name, Password, Options, CaptchaCode")] BoardPosts entity, int threadId) {
-			if (await Captcha.IsCaptchaValid(entity.CaptchaCode, _configuration)) {
+			if (string.IsNullOrEmpty(entity.CaptchaCode) || await Captcha.IsCaptchaValid(entity.CaptchaCode, _configuration)) {
 				return await Post(entity, threadId);
 			} else {
 				return BadRequest("Invalid captcha");
@@ -412,7 +412,7 @@ namespace NetBoard.Controllers.Generic {
 				}
 
 				HandleResponsePosting(entity, thread);
-				HandleLimitExceedings(thread);
+				HandleLimitExceedings(entity, await GetThreadInfo(threadId));
 
 			// topic posting mode
 			} else {
@@ -452,8 +452,8 @@ namespace NetBoard.Controllers.Generic {
 
 		// POST: Entity/report
 		[HttpPost("report")]
-		public virtual async Task<ActionResult> ReportPost([Bind("PostID, Reason")] Report report) {
-			if (!await Captcha.IsCaptchaValid(report.CaptchaCode, _configuration)) {
+		public virtual async Task<ActionResult> ReportPost([Bind("PostID, Reason, CaptchaCode")] Report report) {
+			if (string.IsNullOrEmpty(report.CaptchaCode) || !await Captcha.IsCaptchaValid(report.CaptchaCode, _configuration)) {
 				return BadRequest("Invalid captcha");
 			}
 
@@ -579,10 +579,14 @@ namespace NetBoard.Controllers.Generic {
 		/// Marks the thread as past limits if required.
 		/// </summary>
 		/// <param name="thread"></param>
-		private void HandleLimitExceedings(BoardPosts thread) {
-			if (!thread.ResponseCount.HasValue) return;
-			if (!thread.ImageCount.HasValue) return;
-			if (MaxResponses >= thread.ResponseCount.Value || MaxImages >= thread.ImageCount.Value) {
+		private void HandleLimitExceedings(BoardPosts thread, Dictionary<string, int> threadInfo) {
+			var responseCountExists = threadInfo.TryGetValue("responseCount", out int responseCount);
+			var imageCountExists = threadInfo.TryGetValue("imageCount", out int imageCount);
+
+			if (!responseCountExists) responseCount = 0;
+			if (!imageCountExists) imageCount = 0;
+
+			if (responseCount >= MaxResponses || imageCount >= MaxImages) {
 				thread.PastLimits = true;
 			}
 		}
