@@ -605,7 +605,7 @@ namespace NetBoard.Controllers.Generic {
 			}
 
 			// bump the thread 
-			if (thread.PastLimits.Value == false && !isSaged) {
+			if ((!thread.PastLimits.HasValue || thread.PastLimits.Value == false) && !isSaged) {
 				thread.LastPostDate = DateTime.UtcNow;
 			}
 			
