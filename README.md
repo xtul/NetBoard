@@ -28,7 +28,6 @@ I started this project to learn to work with .NET technology stack. The primary 
 ### To do
 
 - User banning
-- Automatic DB table seeding
 - ...
 
 # Deployment
