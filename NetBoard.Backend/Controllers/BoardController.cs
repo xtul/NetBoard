@@ -102,7 +102,7 @@ namespace NetBoard.Controllers.Generic {
 					threads = await _context.Set<BoardPosts>()
 												.FromSqlRaw(@$"
 													SELECT * FROM {tableName} AS t
-														WHERE (t.thread IS NULL) {(archive ? "AND (t.archived = true)" : "AND (t.archived = false)")}
+														WHERE (t.thread IS NULL) {(archive ? "AND (t.archived = true) OR (t.archived = true and (t.sticky = false))" : "AND (t.archived = false) OR (t.archived = true and (t.sticky = true))")}
 														ORDER BY t.sticky DESC, t.last_post_date DESC
 														LIMIT {ThreadsPerPage} OFFSET {(ThreadsPerPage * pageNumber) - ThreadsPerPage}
 												")
@@ -112,7 +112,7 @@ namespace NetBoard.Controllers.Generic {
 					threads = await _context.Set<BoardPosts>()
 											.FromSqlRaw(@$"
 													SELECT * FROM {tableName} AS t
-														WHERE (t.thread IS NULL) {(archive ? "AND (t.archived = true)" : "AND (t.archived = false)")}
+														WHERE (t.thread IS NULL) {(archive ? "AND (t.archived = true) OR (t.archived = true and (t.sticky = false))" : "AND (t.archived = false) OR (t.archived = true and (t.sticky = true))")}
 														ORDER BY t.sticky DESC, t.last_post_date DESC
 														LIMIT {ThreadsPerPage}
 											")
@@ -218,11 +218,16 @@ namespace NetBoard.Controllers.Generic {
 				PostedOn = op.PostedOn,
 				LastPostDate = op.LastPostDate,
 				PosterLevel = op.PosterLevel,
-				Thread = op.Id
+				Thread = op.Id,
+				Sticky = op.Sticky,
+				Archived = op.Archived
 			};
 			if (op.Image != null) {
 				opDTO.Image = op.Image;
 				opDTO.SpoilerImage = op.SpoilerImage;
+			}
+			if (op.PosterIP == HttpContext.Connection.RemoteIpAddress.ToString()) {
+				opDTO.You = true;
 			}
 
 			var posts = new List<PostStructure> {
@@ -251,6 +256,9 @@ namespace NetBoard.Controllers.Generic {
 					if (r.Image != null) {
 						rDTO.Image = r.Image;
 						rDTO.SpoilerImage = r.SpoilerImage;
+					}
+					if (r.PosterIP == HttpContext.Connection.RemoteIpAddress.ToString()) {
+						rDTO.You = true;
 					}
 					posts.Add(rDTO);
 				}
@@ -304,6 +312,9 @@ namespace NetBoard.Controllers.Generic {
 					rDTO.Image = r.Image;
 					rDTO.SpoilerImage = r.SpoilerImage;
 				}
+				if (r.PosterIP == HttpContext.Connection.RemoteIpAddress.ToString()) {
+					rDTO.You = true;
+				}
 				repliesDto.Add(rDTO);
 			}
 
@@ -341,6 +352,9 @@ namespace NetBoard.Controllers.Generic {
 			if (post.Image != null) {
 				dto.Image = post.Image;
 				dto.SpoilerImage = post.SpoilerImage;
+			}
+			if (post.PosterIP == HttpContext.Connection.RemoteIpAddress.ToString()) {
+				dto.You = true;
 			}
 
 			return dto;
@@ -514,11 +528,20 @@ namespace NetBoard.Controllers.Generic {
 			// I regret deciding on this approach to generic controller. I regret it so much.
 			var deleteList = new List<BoardPosts>();
 
-			var archived = await _context.Set<BoardPosts>().Where(x => x.Archived).ToArrayAsync();
+			var archived = await _context.Set<BoardPosts>().Where(x => x.Archived && !x.Sticky).ToArrayAsync();
 
+			// add thread responses to deletion
 			foreach (var thread in archived) {
 				var archivedResponses = await _context.Set<BoardPosts>().Where(x => x.Thread == thread.Id).ToArrayAsync();
 				deleteList.AddRange(archivedResponses);
+
+				// also delete images
+				foreach (var response in archivedResponses) {
+					if (!string.IsNullOrEmpty(response.Image)) {
+						DeleteImage(typeof(BoardPosts).Name, response.Id);
+					}
+				}
+				DeleteImage(typeof(BoardPosts).Name, thread.Id);
 			}
 			deleteList.AddRange(archived);
 
@@ -683,7 +706,7 @@ namespace NetBoard.Controllers.Generic {
 									.CountAsync();
 			var posters = await _context.Set<BoardPosts>()
 									.AsNoTracking()
-									.Where(x => x.Thread == threadId)
+									.Where(x => x.Thread == threadId || x.Id == threadId)
 									.Select(p => p.PosterIP)
 									.ToArrayAsync();
 			var uniquePosters = posters.Distinct().Count();
@@ -691,11 +714,14 @@ namespace NetBoard.Controllers.Generic {
 			var threadIndex = Array.IndexOf(threads, threadId);
 			var page = ((threadIndex - threadIndex % 10) / 10) + 1;
 
+			var isPastLimits = responseCount >= MaxResponses || imageCount >= MaxImages;
+
 			var result = new Dictionary<string, int>() {
 				{ "imageCount", imageCount },
 				{ "responseCount", responseCount },
 				{ "uniquePosters", uniquePosters },
-				{ "page", page }
+				{ "page", page },
+				{ "pastLimits", isPastLimits ? 1 : 0 }
 			};
 
 			return result;

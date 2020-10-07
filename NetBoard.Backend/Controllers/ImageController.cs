@@ -20,7 +20,7 @@ namespace NetBoard.Controllers {
 		private readonly ApplicationDbContext _context;
 		private readonly string _tempImageDir;
 
-		public TimeSpan ImageExpiration = TimeSpan.FromMinutes(30);
+		public TimeSpan ImageExpiration = TimeSpan.FromMinutes(10);
 
 		public ImageController(ApplicationDbContext context) {
 			_context = context;
