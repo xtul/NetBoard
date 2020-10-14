@@ -58,6 +58,12 @@
     <Content Update="wwwroot\img\error.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Update="wwwroot\img\icons\favicon-16x16.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Update="wwwroot\img\logo-sm.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Update="wwwroot\img\logo.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
