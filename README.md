@@ -19,16 +19,14 @@ I started this project to learn to work with .NET technology stack. The primary 
  - Storing user-sent images in queue/public directory
  - Generating image thumbnails
  - Reporting posts for administration
+ - IP bans *(middleware filters IPs that are in appsettings.json and/or in DB)*
+ - Shadow bans *(posts made by shadow banned IPs are only visible to them)*
+ - VPN blocking *(thanks to https://github.com/ejrv/VPNs)*
 
 ### Partially done
 - Administration panel *(will be replaced by the NetChan frontend project)*
 - OAuth2 authorization *(API can be protected but logging in still needs work)*
 - Multiple RDBMS support *(only PostgreSQL was tested)*
-
-### To do
-
-- User banning
-- ...
 
 # Deployment
 
