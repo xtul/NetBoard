@@ -49,7 +49,7 @@ namespace NetBoard.Controllers {
 		#region POST
 		public async Task<IActionResult> ArchivePostAsync([FromQuery] string board, [FromRoute] int id, [FromQuery] string unarchive = "false") {
 			var post = (PostStructure)await _context.FindAsync(BoardFinder.GetBoard(board), id);
-			if (post == null) return NotFound();
+			if (post == null) return BadRequest();
 			if (unarchive == "true") {
 				post.Archived = false;
 			} else {
@@ -61,7 +61,7 @@ namespace NetBoard.Controllers {
 
 		public async Task<IActionResult> DeletePostAsync([FromQuery] string board, [FromRoute] int id) {
 			var post = (PostStructure)await _context.FindAsync(BoardFinder.GetBoard(board), id);
-			if (post == null) return NotFound();
+			if (post == null) return BadRequest();
 
 			// I tried to avoid making server-only API endpoints
 			// but since I need to access topic responses I can't 
@@ -80,7 +80,7 @@ namespace NetBoard.Controllers {
 
 		public async Task<IActionResult> DeleteReportAsync([FromRoute] int id) {
 			var report = await _context.Reports.FindAsync(id);
-			if (report == null) return NotFound();
+			if (report == null) return BadRequest();
 			_context.Remove(report);
 			await _context.SaveChangesAsync();
 			return Redirect(Request.Headers["Referer"].ToString());
@@ -88,7 +88,7 @@ namespace NetBoard.Controllers {
 
 		public async Task<IActionResult> DeleteSageAsync([FromRoute] int id) {
 			var sage = await _context.Sages.FindAsync(id);
-			if (sage == null) return NotFound();
+			if (sage == null) return BadRequest();
 			_context.Remove(sage);
 			await _context.SaveChangesAsync();
 			return Redirect(Request.Headers["Referer"].ToString());

@@ -41,6 +41,7 @@ namespace NetBoard.ExtensionMethods {
 			BackgroundJob.Enqueue<HangfireJobs>(j => j.SeedDB()); // always run on startup - in case of empty database
 			RecurringJob.AddOrUpdate<HangfireJobs>(j => j.CleanupImageQueue(), "*/5 * * * *");
 			RecurringJob.AddOrUpdate<HangfireJobs>(j => j.DeleteArchivedThreadsAsync(), "0 0 * * 0"); // remove archived threads on midnight
+			RecurringJob.AddOrUpdate<HangfireJobs>(j => j.CheckBans(), "0 0 * * 0"); // remove expired bans
 		}
 	}
 }

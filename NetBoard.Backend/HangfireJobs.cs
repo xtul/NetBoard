@@ -81,6 +81,25 @@ namespace NetBoard {
 			await _context.SaveChangesAsync();
 		}
 
+		/// <summary>
+		/// Clears bans that are meant to expire.
+		/// </summary>
+		/// <returns></returns>
+		public async Task CheckBans() {
+			var expiredBans = await _context.Bans.AsNoTracking().Where(x => x.ExpiresOn <= DateTime.UtcNow).ToListAsync();
+
+			foreach (var ban in expiredBans) {
+				// remove IP from appsettings
+				var shadowBanList = _configuration.GetSection("Bans:ShadowBanList").GetChildren().Select(c => c.Value).ToList();
+				shadowBanList.Remove(ban.Ip);
+				AppsettingsManipulation.AddOrUpdateAppSetting("Bans:ShadowBanList", shadowBanList);
+			}
+
+			_context.Bans.RemoveRange(expiredBans);
+
+			await _context.SaveChangesAsync();
+		}
+
 		private async Task EnsureRolesAsync() {
 			if (await _roleManager.FindByNameAsync("admin") == null) {
 				var role = new IdentityRole<int> {

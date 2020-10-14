@@ -1,22 +1,18 @@
 using AspNetCoreRateLimit;
-using IdentityServer4.Models;
-using IdentityServer4.Test;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Logging;
 using NetBoard.ExtensionMethods;
+using NetBoard.Middleware;
 using NetBoard.Model.Data;
-using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Security.Claims;
 
@@ -26,22 +22,21 @@ namespace NetBoard {
 		public readonly IWebHostEnvironment _environment;
 
 		public Startup(IWebHostEnvironment environment) {
-			_configuration = new ConfigurationBuilder().SetBasePath(Directory.GetCurrentDirectory()).AddJsonFile("appsettings.json").Build();
+			_configuration = new ConfigurationBuilder().SetBasePath(Directory.GetCurrentDirectory()).AddJsonFile("appsettings.json", false, true).Build();
 			_environment = environment;
 		}
-
 
 		public void ConfigureServices(IServiceCollection services) {
 			services.AddDbContext<ApplicationDbContext>(options => {
 				switch (_configuration["DatabaseType"]) {
 					case "PostgreSQL":
-						options.UseNpgsql(_configuration.GetConnectionString("PostgreSQL"), b => b.MigrationsAssembly("NetBoard.Model"));
+						options.UseNpgsql(_configuration.GetConnectionString("PostgreSQL"), b => b.MigrationsAssembly("NetBoard.Backend"));
 						break;
 					case "SqlServer":
-						options.UseSqlServer(_configuration.GetConnectionString("SqlServer"), b => b.MigrationsAssembly("NetBoard.Model"));
+						options.UseSqlServer(_configuration.GetConnectionString("SqlServer"), b => b.MigrationsAssembly("NetBoard.Backend"));
 						break;
 					case "MySQL":
-						options.UseMySQL(_configuration.GetConnectionString("MySQL"), b => b.MigrationsAssembly("NetBoard.Model"));
+						options.UseMySQL(_configuration.GetConnectionString("MySQL"), b => b.MigrationsAssembly("NetBoard.Backend"));
 						break;
 					default:
 						break;
@@ -166,6 +161,9 @@ namespace NetBoard {
 
 			app.UseStaticFiles();
 			app.UseDefaultFiles();
+
+			// banned IPs get 404 on all requests
+			app.UseIPFilter();
 
 			app.UseRouting();
 

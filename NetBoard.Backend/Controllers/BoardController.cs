@@ -16,6 +16,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Reflection;
 using System.Threading.Tasks;
 using static NetBoard.Controllers.Helpers.ImageManipulation;
@@ -75,11 +76,13 @@ namespace NetBoard.Controllers.Generic {
 				return BadRequest($"Expected page number, 'archive' or 'catalog', but received '{mode}'.");
 			}
 
+			var userIp = HttpContext.Connection.RemoteIpAddress;
+
 			int totalThreads = _context.Set<BoardPosts>().AsNoTracking().Where(x => x.Thread == null).Count();
 			if (totalThreads < 1) return Ok("No threads on this board.");
 			var pageCount = (int)Math.Ceiling((double)totalThreads / ThreadsPerPage);
 
-			// don't allow navigating to pages that don't exist
+			// don't allow navigating to out of range pages 
 			if (pageNumber < 1) pageNumber = 1;
 			if (pageNumber > pageCount) pageNumber = pageCount;
 
@@ -93,6 +96,9 @@ namespace NetBoard.Controllers.Generic {
 										.OrderByDescending(x => x.Sticky).ThenByDescending(x => x.LastPostDate)
 										.Where(x => x.Thread == null)
 										.ToListAsync();
+
+				threads = ShadowBans<BoardPosts>.FilterShadowbanned(threads, userIp);
+
 			// otherwise implement pagination
 			} else {
 				var tableName = _context.GetSchemaAndTable<BoardPosts>();
@@ -107,7 +113,10 @@ namespace NetBoard.Controllers.Generic {
 														LIMIT {ThreadsPerPage} OFFSET {(ThreadsPerPage * pageNumber) - ThreadsPerPage}
 												")
 												.ToListAsync();
-				// otherwise just show first page
+
+					threads = ShadowBans<BoardPosts>.FilterShadowbanned(threads, userIp);
+
+					// otherwise just show first page
 				} else {
 					threads = await _context.Set<BoardPosts>()
 											.FromSqlRaw(@$"
@@ -117,6 +126,8 @@ namespace NetBoard.Controllers.Generic {
 														LIMIT {ThreadsPerPage}
 											")
 											.ToListAsync();
+
+					threads = ShadowBans<BoardPosts>.FilterShadowbanned(threads, userIp);
 				}
 			}
 
@@ -128,11 +139,10 @@ namespace NetBoard.Controllers.Generic {
 				// don't display sensitive/useless data
 				thread.Password = null;
 				thread.PosterIP = null;
+				thread.ShadowBanned = null;
 				if (thread.Image == null) thread.SpoilerImage = null;
 				thread.Content = thread.Content.ReduceLength(previewLength, cutoffText);
 				
-				thread.ResponseCount = await _context.Set<BoardPosts>().CountAsync(x => x.Thread == thread.Id);
-				thread.ImageCount = await _context.Set<BoardPosts>().CountAsync(x => x.Thread == thread.Id && x.Image != null);
 				// also add last 3 replies if not in catalog mode
 				if (!catalog) {
 					var lastResponses = await _context.Set<BoardPosts>()
@@ -196,18 +206,14 @@ namespace NetBoard.Controllers.Generic {
 		/// </summary>
 		[HttpGet("thread/{id}")]
 		public virtual async Task<ActionResult<Dictionary<string, object>>> GetThread(int id) {
-			// check if this thread exists
-			if (!ThreadExists(id))
-				return NotFound($"There's no thread with ID {id}.");
+			var userIp = HttpContext.Connection.RemoteIpAddress;
+			if (!await ThreadExists(id, userIp)) return BadRequest($"There's no thread with ID {id}.");
 
 			var op = await _context.Set<BoardPosts>()
 									.AsNoTracking()
 									.Where(x => x.Id == id)
 									.FirstOrDefaultAsync();
 
-			if (op == null) {
-				return NotFound($"There's no thread with ID {id}.");
-			}
 
 			// construct OP response
 			var opDTO = new PostStructure {
@@ -260,7 +266,9 @@ namespace NetBoard.Controllers.Generic {
 					if (r.PosterIP == HttpContext.Connection.RemoteIpAddress.ToString()) {
 						rDTO.You = true;
 					}
-					posts.Add(rDTO);
+					if (r.ShouldDisplayShadowbanned(userIp)) {
+						posts.Add(rDTO);
+					}
 				}
 			}
 
@@ -283,8 +291,8 @@ namespace NetBoard.Controllers.Generic {
 		[HttpGet("thread/{id}/{lastId}")]
 		public virtual async Task<ActionResult<Dictionary<string, object>>> GetNewPosts(int id, int lastId) {
 			// check if this thread exists
-			if (!ThreadExists(id))
-				return NotFound($"There's no thread with ID {id}.");
+			var userIp = HttpContext.Connection.RemoteIpAddress;
+			if (!await ThreadExists(id, userIp)) return BadRequest($"There's no thread with ID {id}.");
 
 			// get new responses
 			var replies = await _context.Set<BoardPosts>()
@@ -294,7 +302,7 @@ namespace NetBoard.Controllers.Generic {
 									.ToListAsync();
 
 			if (replies.Count == 0) {
-				return NotFound("No new replies.");
+				return BadRequest("No new replies.");
 			}
 
 			var repliesDto = new List<PostStructure>();
@@ -335,11 +343,13 @@ namespace NetBoard.Controllers.Generic {
 		/// </summary>
 		[HttpGet("post/{id}")]
 		public virtual async Task<ActionResult<PostStructure>> GetPost(int id) {
-			var post = await _context.Set<BoardPosts>().FindAsync(id);
+			var userIp = HttpContext.Connection.RemoteIpAddress;
 
-			if (post == null) {
-				return NotFound($"There's no post with ID {id}.");
+			if (!await PostExists(id, userIp)) {
+				return BadRequest($"There's no post with ID {id}.");
 			}
+
+			var post = await _context.Set<BoardPosts>().FindAsync(id);
 
 			// construct response
 			var dto = new PostStructure {
@@ -367,11 +377,13 @@ namespace NetBoard.Controllers.Generic {
 		/// <returns>Thread ID.</returns>
 		[HttpGet("post/{id}/thread")]
 		public virtual async Task<ActionResult> GetPostThread(int id) {
-			var post = await _context.Set<BoardPosts>().FindAsync(id);
+			var userIp = HttpContext.Connection.RemoteIpAddress;
 
-			if (post == null) {
-				return NotFound($"There's no thread with ID {id}.");
+			if (!await PostExists(id, userIp)) {
+				return BadRequest($"There's no post with ID {id}.");
 			}
+
+			var post = await _context.Set<BoardPosts>().FindAsync(id);
 
 			var thread = post.Thread;
 
@@ -410,6 +422,12 @@ namespace NetBoard.Controllers.Generic {
 		}
 
 		private async Task<ActionResult<BoardPosts>> Post(BoardPosts entity, int threadId = 0) {
+			var userIp = HttpContext.Connection.RemoteIpAddress;
+
+			if (ShadowBans<BoardPosts>.IsIpShadowbanned(userIp, _configuration)) {
+				entity.ShadowBanned = true;
+			}
+
 			entity = FixPostedEntity(entity);
 			if (!entity.Password.IsNullOrEmptyWithTrim()) {
 				entity.SetPassword(entity.Password);
@@ -417,10 +435,10 @@ namespace NetBoard.Controllers.Generic {
 
 			// response posting mode
 			if (threadId != 0) {				
-				var thread = _context.Set<BoardPosts>().Find(threadId);				
-				if (thread == null) {
-					return NotFound($"There is no thread with ID {threadId}.");
+				if (!await ThreadExists(threadId, userIp)) {
+					return BadRequest($"There is no thread with ID {threadId}.");
 				}
+				var thread = _context.Set<BoardPosts>().Find(threadId);				
 				if (thread.Archived) {
 					return BadRequest("You can't respond to an archived thread.");
 				}
@@ -467,11 +485,12 @@ namespace NetBoard.Controllers.Generic {
 		// POST: Entity/report
 		[HttpPost("report")]
 		public virtual async Task<ActionResult> ReportPost([Bind("PostID, Reason, CaptchaCode")] Report report) {
+			var userIp = HttpContext.Connection.RemoteIpAddress;
 			if (string.IsNullOrEmpty(report.CaptchaCode) || !await Captcha.IsCaptchaValid(report.CaptchaCode, _configuration)) {
 				return BadRequest("Invalid captcha");
 			}
 
-			if (!PostExists(report.PostId)) {
+			if (!await PostExists(report.PostId, userIp)) {
 				return BadRequest($"There is no post with ID {report.PostId}.");
 			}
 
@@ -494,7 +513,7 @@ namespace NetBoard.Controllers.Generic {
 		public virtual async Task<ActionResult<BoardPosts>> DeleteEntity([FromBody] Delete delete, int id, [FromQuery] bool onlyImage = false){
 			var entity = await _context.Set<BoardPosts>().FindAsync(id);
 			if (entity == null) {
-				return NotFound("Post with this ID was not found.");
+				return BadRequest("Post with this ID was not found.");
 			}
 			if (entity.Password == null || !entity.TestPassword(delete.Password)) {
 				return BadRequest("Wrong password.");
@@ -564,12 +583,30 @@ namespace NetBoard.Controllers.Generic {
 			return entity;
 		}
 
-		private bool PostExists(int id) {
-			return _context.Set<BoardPosts>().Any(e => e.Id == id);
+		/// <summary>
+		/// Checks if post exists and if it is shadowbanned, determines if it should be returned.
+		/// </summary>
+		/// <param name="id">Post ID.</param>
+		/// <param name="userIp">Connecting IP used to check if shadowbanned post should be displayed.</param>
+		private async Task<bool> PostExists(int id, IPAddress userIp) {
+			var post = await _context.Set<BoardPosts>().Where(e => e.Id == id).FirstOrDefaultAsync();
+			if (post != null) {
+				return post.ShouldDisplayShadowbanned(userIp);
+			}
+			return false;
 		}
 
-		private bool ThreadExists(int id) {
-			return _context.Set<BoardPosts>().Any(e => e.Id == id && e.Thread == null);
+		/// <summary>
+		/// Checks if thread exists and if it is shadowbanned, determines if it should be returned.
+		/// </summary>
+		/// <param name="id">Thread ID.</param>
+		/// <param name="userIp">Connecting IP used to check if shadowbanned thread should be displayed.</param>
+		private async Task<bool> ThreadExists(int id, IPAddress userIp) {
+			var post = await _context.Set<BoardPosts>().Where(e => e.Id == id && e.Thread == null).FirstOrDefaultAsync();
+			if (post != null) {
+				return post.ShouldDisplayShadowbanned(userIp);
+			}
+			return false;
 		}
 
 		/// <summary>
@@ -738,7 +775,7 @@ namespace NetBoard.Controllers.Generic {
 		public virtual async Task<ActionResult<BoardPosts>> AuthorizedDeleteEntity(int id) {
 			var entity = await _context.Set<BoardPosts>().FindAsync(id);
 			if (entity == null) {
-				return NotFound("Post with this ID was not found.");
+				return BadRequest("Post with this ID was not found.");
 			}
 
 			_context.Set<BoardPosts>().Remove(entity);
@@ -773,6 +810,7 @@ namespace NetBoard.Controllers.Generic {
 		}
 
 		private async Task<ActionResult<BoardPosts>> AdministrativePost(BoardPosts entity, AdministrativeLevel posterLevel, int threadId = 0) {
+			var userIp = HttpContext.Connection.RemoteIpAddress;
 			entity = FixPostedEntity(entity);
 
 			entity.Password = null;
@@ -782,8 +820,8 @@ namespace NetBoard.Controllers.Generic {
 
 			// response posting mode
 			if (threadId != 0) {
-				if (!ThreadExists(threadId)) {
-					return NotFound($"There is no thread with ID {threadId}.");
+				if (!await ThreadExists(threadId, userIp)) {
+					return BadRequest($"There is no thread with ID {threadId}.");
 				}
 
 				entity.Thread = threadId;

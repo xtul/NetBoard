@@ -23,6 +23,7 @@ namespace NetBoard.Model.Data {
 		public DbSet<Diy> DiyPosts { get; set; }
 		public DbSet<Report> Reports { get; set; }
 		public DbSet<Sage> Sages { get; set; }
+		public DbSet<Ban> Bans { get; set; }
 		public DbSet<MarkedForDeletion> MarkedForDeletion { get; set; }
 		public DbSet<ImageQueue> ImageQueue { get; set; }
 		public DbSet<FrontpageData> FrontpageData { get; set; }
@@ -43,6 +44,7 @@ namespace NetBoard.Model.Data {
 
 			b.Entity<Report>().HasKey(x => x.Id);
 			b.Entity<Sage>().HasKey(x => x.Id);
+			b.Entity<Ban>().HasKey(x => x.Id);
 			b.Entity<MarkedForDeletion>().HasKey(x => x.Id);
 			b.Entity<FrontpageData>().HasKey(x => x.Id);
 			b.Entity<ImageQueue>().HasKey(x => x.Id);

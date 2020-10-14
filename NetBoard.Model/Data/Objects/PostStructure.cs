@@ -7,6 +7,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Security.Claims;
 using System.Security.Cryptography;
+using System.Net;
 
 namespace NetBoard.Model.Data {
 	public class PostStructure {
@@ -77,6 +78,7 @@ namespace NetBoard.Model.Data {
 		public bool Sticky { get; set; }
 		public DateTime LastPostDate { get; set; }
 		public string PosterIP { get; set; }
+		public bool? ShadowBanned { get; set; }
 		[NotMapped]
 		public List<PostStructure> Responses { get; set; }
 		[NotMapped]
@@ -158,5 +160,25 @@ namespace NetBoard.Model.Data {
 		}
 
 		#endregion Password
+
+		#region Shadowbanned
+
+		public bool IsShadowbanned() {
+			return ShadowBanned.HasValue && ShadowBanned.Value == true;
+		}
+
+		/// <summary>
+		/// Determines whether this shadowbanned post should be displayed. Shadowbanned posts are only displayed to the person that posted it.
+		/// </summary>
+		/// <param name="connectingIp"></param>
+		/// <returns></returns>
+		public bool ShouldDisplayShadowbanned(IPAddress connectingIp) {
+			if (!IsShadowbanned()) {
+				return true; // it isn't shadowbanned, display it
+			}
+			return IPAddress.Parse(PosterIP).Equals(connectingIp);
+		}
+
+		#endregion Shadowbanned
 	}
 }
