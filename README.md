@@ -21,6 +21,7 @@ I started this project to learn to work with .NET technology stack. The primary 
  - Reporting posts for administration
  - IP bans *(middleware filters IPs that are in appsettings.json and/or in DB)*
  - Shadow bans *(posts made by shadow banned IPs are only visible to them)*
+ - VPN blocking *(thanks to https://github.com/ejrv/VPNs)*
 
 ### Partially done
 - Administration panel *(will be replaced by the NetChan frontend project)*
