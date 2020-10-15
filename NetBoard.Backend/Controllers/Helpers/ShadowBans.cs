@@ -14,13 +14,9 @@ namespace NetBoard.Controllers.Helpers {
 			// filter shadowbanned threads
 			var deletionList = new List<BoardPost>();
 			foreach (var post in posts) {
-				if (post.ShadowBanned.HasValue && post.ShadowBanned.Value) {
-					var posterIp = IPAddress.Parse(post.PosterIP);
-					// if poster IP isn't equal to shadowbanned IP, don't display this thread
-					if (!posterIp.Equals(userIp)) {
-						// add to deletion list
-						deletionList.Add(post);
-					}
+				// if this shadowbanned post shouldn't be displayed, add it to deletion list
+				if (!post.ShouldDisplayShadowbanned(userIp)) {
+					deletionList.Add(post);
 				}
 			}
 

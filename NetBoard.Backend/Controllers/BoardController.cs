@@ -60,20 +60,20 @@ namespace NetBoard.Controllers.Generic {
 		/// <summary>
 		/// Gets all threads from provided board.
 		/// </summary>
-		/// <param name="mode">Either 'catalog', 'archive' or page number.</param>
+		/// <param name="mode">Either 'list', 'archive' or page number.</param>
 		[HttpGet("{mode}")]
 		public virtual async Task<ActionResult<Dictionary<string, object>>> GetThreads(string mode) {
-			var catalog = false;
+			var list = false;
 			var archive = false;
 			var pageNumber = 0;
-			if (mode == "catalog") {
-				catalog = true;
+			if (mode == "list") {
+				list = true;
 			} else if (mode == "archive") {
 				archive = true;
 			} else if (int.TryParse(mode, out int n)) {
 				pageNumber = n;
 			} else {
-				return BadRequest($"Expected page number, 'archive' or 'catalog', but received '{mode}'.");
+				return BadRequest($"Expected page number, 'archive' or 'list', but received '{mode}'.");
 			}
 
 			var userIp = HttpContext.Connection.RemoteIpAddress;
@@ -89,8 +89,8 @@ namespace NetBoard.Controllers.Generic {
 			// grab and sort all threads (stickies first, then by activity)
 			List<BoardPosts> threads;
 
-			// load all threads in catalog mode
-			if (catalog) {
+			// load all threads in list mode
+			if (list) {
 				threads = await _context.Set<BoardPosts>()
 										.AsNoTracking()
 										.OrderByDescending(x => x.Sticky).ThenByDescending(x => x.LastPostDate)
@@ -143,8 +143,8 @@ namespace NetBoard.Controllers.Generic {
 				if (thread.Image == null) thread.SpoilerImage = null;
 				thread.Content = thread.Content.ReduceLength(previewLength, cutoffText);
 				
-				// also add last 3 replies if not in catalog mode
-				if (!catalog) {
+				// also add last 3 replies if not in list mode
+				if (!list) {
 					var lastResponses = await _context.Set<BoardPosts>()
 														.AsNoTracking()
 														.Where(x => x.Thread == thread.Id)
@@ -173,11 +173,17 @@ namespace NetBoard.Controllers.Generic {
 						}
 						thread.Responses = tempList;
 					}
+				// add thread info in list mode
+				} else {
+					var threadInfo = await GetThreadInfo(thread.Id);
+
+					if (threadInfo.TryGetValue("responseCount", out int responseCount)) thread.ResponseCount = responseCount;
+					if (threadInfo.TryGetValue("imageCount", out int imageCount)) thread.ImageCount = imageCount;
 				}
 			}
 
 			Dictionary<string, object> pageData;
-			if (catalog) {
+			if (list) {
 				pageData = new Dictionary<string, object> {
 					{ "board", typeof(BoardPosts).Name.ToLower() },
 					{ "totalThreads", totalThreads },
