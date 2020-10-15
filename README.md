@@ -1,4 +1,7 @@
-﻿# NetBoard
+<p float="left">
+  <img src="https://raw.githubusercontent.com/xtul/NetBoard/master/NetBoard.Backend/wwwroot/img/logo-sm.png" />
+  <h1>NetBoard</h1>
+</p>
 
 NetBoard is an imageboard API using ASP<span>.NET Core 3.1. It is a hobby project and heavily work-in-progress. Many things are subject to change.
 
