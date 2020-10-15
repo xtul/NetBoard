@@ -179,6 +179,7 @@ namespace NetBoard.Controllers.Generic {
 
 					if (threadInfo.TryGetValue("responseCount", out int responseCount)) thread.ResponseCount = responseCount;
 					if (threadInfo.TryGetValue("imageCount", out int imageCount)) thread.ImageCount = imageCount;
+					if (threadInfo.TryGetValue("pastLimits", out int pastLimits)) thread.PastLimits = pastLimits == 1 ? true : false;
 				}
 			}
 
