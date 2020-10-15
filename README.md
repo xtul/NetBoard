@@ -35,8 +35,6 @@ I started this project to learn to work with .NET technology stack. The primary 
 
 NetBoard is not yet ready for production.
 
-The only tested method is to deploy NetBoard on your own server following Microsoft's documentation. A Docker image will be released when the project is production-ready.
-
 
 # Contributing
 
