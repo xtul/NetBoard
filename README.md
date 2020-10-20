@@ -31,11 +31,6 @@ I started this project to learn to work with .NET technology stack. The primary 
 - OAuth2 authorization *(API can be protected but logging in still needs work)*
 - Multiple RDBMS support *(only PostgreSQL was tested)*
 
-# Deployment
-
-NetBoard is not yet ready for production.
-
-
 # Contributing
 
 Any help is greatly appreciated. Feel free to contribute to the code or report issues. 
@@ -44,7 +39,7 @@ To make changes to the codebase, you will need:
 
 `Visual Studio 2019` - to edit and compile the project file (free version is fine),
 
-`PostgreSQL 12` - or other supported RDBMS.
+`PostgreSQL 13` - or other supported RDBMS.
 
 Open Visual Studio and open a project from repository. Point it to this repository and let it download.
 
