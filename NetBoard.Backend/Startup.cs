@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -161,6 +162,11 @@ namespace NetBoard {
 
 			app.UseStaticFiles();
 			app.UseDefaultFiles();
+
+			// tell reverse proxy to use put in provided by X-Forwarder-For header
+			app.UseForwardedHeaders(new ForwardedHeadersOptions {
+				ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+			});
 
 			// banned IPs get 404 on all requests
 			app.UseIPFilter();
