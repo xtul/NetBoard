@@ -3,7 +3,7 @@
   <h1>NetBoard</h1>
 </p>
 
-NetBoard is an imageboard API using ASP<span>.NET Core 3.1. It is a hobby project and heavily work-in-progress. Many things are subject to change.
+NetBoard is an imageboard API using ASP<span>.NET Core 3.1. It is a hobby project and heavily work-in-progress. Many things are subject to change. A live version is available on [https://netchan.nl/](https://netchan.nl/).
 
 For a web interface, please see my [NetChan](https://github.com/xtul/NetChan) repository.
 
@@ -13,7 +13,7 @@ I started this project to learn to work with .NET technology stack. The primary 
 ### Currently available
 
  - Reading boards and their pages, threads, single posts
- - "Classic" and Catalog board view
+ - "Classic" and List board view
  - Making new threads and responding to existing ones
  - Posting protected by hCaptcha
  - Setting separate rules for boards, such as max pages or images
