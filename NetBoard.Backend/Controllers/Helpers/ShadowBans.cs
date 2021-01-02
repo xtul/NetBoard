@@ -10,12 +10,17 @@ using System.Threading.Tasks;
 
 namespace NetBoard.Controllers.Helpers {
 	public static class ShadowBans<BoardPost> where BoardPost : PostStructure {
-		public static List<BoardPost> FilterShadowbanned(List<BoardPost> posts, IPAddress userIp) {
+		/// <summary>
+		/// Removes posts that are not supposed to be shown to a given <paramref name="ip"/>.
+		/// </summary>
+		/// <param name="posts">A list of posts to filter.</param>
+		/// <param name="ip">Connecting user's IP.</param>
+		public static void FilterShadowbanned(ref List<BoardPost> posts, IPAddress ip) {
 			// filter shadowbanned threads
 			var deletionList = new List<BoardPost>();
 			foreach (var post in posts) {
 				// if this shadowbanned post shouldn't be displayed, add it to deletion list
-				if (!post.ShouldDisplayShadowbanned(userIp)) {
+				if (!post.ShouldDisplayShadowbanned(ip)) {
 					deletionList.Add(post);
 				}
 			}
@@ -25,8 +30,6 @@ namespace NetBoard.Controllers.Helpers {
 			foreach (var post in deletionList) {
 				posts.Remove(post);
 			}
-
-			return posts;
 		}
 
 		/// <summary>

@@ -176,9 +176,60 @@ namespace NetBoard.Model.Data {
 			if (!IsShadowbanned()) {
 				return true; // it isn't shadowbanned, display it
 			}
+			// display only if poster IP is equal to IP requesting this post
 			return IPAddress.Parse(PosterIP).Equals(connectingIp);
 		}
 
 		#endregion Shadowbanned
+
+		#region Utilities
+		/// <summary>
+		/// Determines whether this post was made by connecting IP.
+		/// </summary>
+		public bool IsYou(IPAddress clientIP) {
+			var ip = PosterIP ?? "127.0.0.1";
+
+			return IPAddress.Parse(ip).Equals(clientIP);
+		}
+
+		/// <summary>
+		/// Removes sensitive/useless data from this post, allowing it to be used in data transfer (eg. API response).
+		/// Make sure you don't save this post to database! When in doubt, use <see cref="CloneAsDTO"/>.
+		/// </summary>
+		public void AsDTO(int contentPreviewLength, string contentCutoffText, IPAddress clientIp, int? threadId = null, bool isOP = false) {
+			Password = null;
+			You = IsYou(clientIp);
+			PosterIP = null;
+			ShadowBanned = null;
+			if (Image == null) SpoilerImage = null;
+
+			if (!isOP) {
+				Subject = null; // responses don't have subjects, silly
+			}
+
+			Content = Content.ReduceLength(contentPreviewLength, contentCutoffText);
+			if (threadId.HasValue) Thread = threadId.Value;
+		}
+
+		/// <summary>
+		/// Removes sensitive/useless data from this post, allowing it to be used in data transfer (eg. API response).
+		/// Make sure you don't save this post to database! When in doubt, use <see cref="CloneAsDTO"/>.
+		/// Skips content reduction.
+		/// </summary>
+		public void AsDTO(IPAddress clientIp, int? threadId = null, bool isOP = false) {
+			AsDTO(4000, "", clientIp, threadId, isOP);
+		}
+
+		/// <summary>
+		/// Creates a new <see cref="PostStructure"/> based on this one in a version that can be used in data transfer (eg. API response).
+		/// </summary>
+		/// <returns>A new <see cref="PostStructure"/> as DTO.</returns>
+		public PostStructure CloneAsDTO(int contentPreviewLength, string contentCutoffText, IPAddress posterIp, int? threadId = null) {
+			var clone = this;
+			clone.AsDTO(contentPreviewLength, contentCutoffText, posterIp, threadId);
+
+			return clone;
+		}
+		#endregion Utilities
 	}
 }
