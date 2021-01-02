@@ -9,6 +9,8 @@ For a web interface, please see my [NetChan](https://github.com/xtul/NetChan) re
 
 I started this project to learn to work with .NET technology stack. The primary focus is to make maintenance/expansion simple. For example, if a board has it's name changed, migration should be painless. Adding and customizing new boards should also be straightforward.
 
+Note: Both NetBoard and NetChan are currently undergoing major changes, with redesigns or complete rewrites of certain features.
+
 # Features
 ### Currently available
 
@@ -37,13 +39,13 @@ Any help is greatly appreciated. Feel free to contribute to the code or report i
 
 To make changes to the codebase, you will need:
 
-`Visual Studio 2019` - to edit and compile the project file (free version is fine),
+`Visual Studio 2019` - to edit and compile the solution (free version is fine),
 
 `PostgreSQL 13` - or other supported RDBMS.
 
-Open Visual Studio and open a project from repository. Point it to this repository and let it download.
+Make a fork of this repository. Open Visual Studio and press "open a project from repository". Point it to your fork and let it download.
 
-Enter `NetBoard.Backend` project and rename `appsettings.default.json` to `appsettings.json`. Modify to your needs (eg. database connection string and currently used database).
+Open `NetBoard.Backend` project and rename `appsettings.default.json` to `appsettings.json`. Modify to your needs (eg. database connection string and currently used database). You may also need to set `NetBoard.Backend` as a starting project.
 
 After downloading all required NuGet packages, enter NuGet console. Migrate with `add-migration Initial` and `update-database`.
 
