@@ -16,7 +16,7 @@ namespace NetBoard.Controllers.Helpers {
 					{ "sitekey", config.GetValue<string>("HCaptcha:SiteKey") }
 				});
 
-			var result = JsonConvert.DeserializeObject<Dictionary<string, object>>(await response.Content.ReadAsStringAsync());
+			var result = JsonConvert.DeserializeObject<Dictionary<string, object>>(await response.ResponseMessage.Content.ReadAsStringAsync());
 			return (bool)result["success"];
 		}
 	}

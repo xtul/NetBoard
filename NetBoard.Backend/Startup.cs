@@ -152,7 +152,6 @@ namespace NetBoard {
 		public void Configure(IApplicationBuilder app, IWebHostEnvironment env) {
 			if (env.IsDevelopment()) {
 				app.UseDeveloperExceptionPage();
-				app.UseDatabaseErrorPage();
 				IdentityModelEventSource.ShowPII = true;
 			} else {
 				app.UseExceptionHandler("/error.html");

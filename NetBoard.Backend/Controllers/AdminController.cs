@@ -71,8 +71,8 @@ namespace NetBoard.Controllers {
 				.AllowAnyHttpStatus()
 				.DeleteAsync();
 
-			if (result.IsSuccessStatusCode) {
-				return Redirect(Request.Headers["Referer"].ToString() + $"&remoteErr=\"Couldn't delete post: {result.StatusCode}: {result.ReasonPhrase}\"");
+			if (result.ResponseMessage.IsSuccessStatusCode) {
+				return Redirect(Request.Headers["Referer"].ToString() + $"&remoteErr=\"Couldn't delete post: {result.StatusCode}: {result.ResponseMessage.ReasonPhrase}\"");
 			} else {
 				return Redirect("~/admin/post");
 			}
