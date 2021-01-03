@@ -3,17 +3,19 @@
   <h1>NetBoard</h1>
 </p>
 
-NetBoard is an imageboard API using ASP<span>.NET Core 3.1. It is a hobby project and heavily work-in-progress. Many things are subject to change.
+NetBoard is an imageboard API using ASP<span>.NET Core 3.1. It is a hobby project and heavily work-in-progress. Many things are subject to change. A live version is available on [https://netchan.nl/](https://netchan.nl/).
 
 For a web interface, please see my [NetChan](https://github.com/xtul/NetChan) repository.
 
 I started this project to learn to work with .NET technology stack. The primary focus is to make maintenance/expansion simple. For example, if a board has it's name changed, migration should be painless. Adding and customizing new boards should also be straightforward.
 
+Note: Both NetBoard and NetChan are currently undergoing major changes, with redesigns or complete rewrites of certain features.
+
 # Features
 ### Currently available
 
  - Reading boards and their pages, threads, single posts
- - "Classic" and Catalog board view
+ - "Classic" and List board view
  - Making new threads and responding to existing ones
  - Posting protected by hCaptcha
  - Setting separate rules for boards, such as max pages or images
@@ -31,24 +33,19 @@ I started this project to learn to work with .NET technology stack. The primary 
 - OAuth2 authorization *(API can be protected but logging in still needs work)*
 - Multiple RDBMS support *(only PostgreSQL was tested)*
 
-# Deployment
-
-NetBoard is not yet ready for production.
-
-
 # Contributing
 
 Any help is greatly appreciated. Feel free to contribute to the code or report issues. 
 
 To make changes to the codebase, you will need:
 
-`Visual Studio 2019` - to edit and compile the project file (free version is fine),
+`Visual Studio 2019` - to edit and compile the solution (free version is fine),
 
-`PostgreSQL 12` - or other supported RDBMS.
+`PostgreSQL 13` - or other supported RDBMS.
 
-Open Visual Studio and open a project from repository. Point it to this repository and let it download.
+Make a fork of this repository. Open Visual Studio and press "open a project from repository". Point it to your fork and let it download.
 
-Enter `NetBoard.Backend` project and rename `appsettings.default.json` to `appsettings.json`. Modify to your needs (eg. database connection string and currently used database).
+Open `NetBoard.Backend` project and rename `appsettings.default.json` to `appsettings.json`. Modify to your needs (eg. database connection string and currently used database). You may also need to set `NetBoard.Backend` as a starting project.
 
 After downloading all required NuGet packages, enter NuGet console. Migrate with `add-migration Initial` and `update-database`.
 
