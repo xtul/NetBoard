@@ -25,6 +25,18 @@ namespace NetBoard.Controllers {
 		#endregion
 
 		#region GET
+		[HttpGet("all")]
+		public ActionResult<Dictionary<string, string>> GetAllData() {
+			var dbResult = _context.FrontpageData.Find(1);
+			var responseData = new Dictionary<string, string> {
+				{ "about", dbResult.About },
+				{ "news", dbResult.News },
+				{ "boards", dbResult.BoardsJson },
+			};
+
+			return responseData;
+		}
+
 		[HttpGet("about")]
 		public ActionResult<Dictionary<string, string>> GetAboutData() {
 			var dbResult = _context.FrontpageData.Find(1);

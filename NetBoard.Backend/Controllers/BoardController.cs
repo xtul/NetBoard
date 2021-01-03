@@ -1,28 +1,21 @@
-﻿using Flurl;
-using Flurl.Http;
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NetBoard.Controllers.Helpers;
 using NetBoard.Model.Data;
-using NetBoard.Model.ExtensionMethods;
-using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Net;
-using System.Reflection;
 using System.Threading.Tasks;
 using static NetBoard.Controllers.Helpers.ImageManipulation;
 using static NetBoard.Model.Data.PostStructure;
 
-namespace NetBoard.Controllers.Generic {
+namespace NetBoard.Controllers.Generic
+{
 	[ApiController]
 	public class BoardController<Board> : ControllerBase where Board : PostStructure {
 		#region Board rules

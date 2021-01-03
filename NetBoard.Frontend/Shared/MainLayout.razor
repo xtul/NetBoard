@@ -1,0 +1,25 @@
+﻿@inherits LayoutComponentBase
+
+<MudThemeProvider Theme="NetChan" />
+
+<MudLayout>
+	<MudText Typo="Typo.caption">[/g/ - /diy/ - /meta/]</MudText>
+	<MudMainContent>
+		@Body
+	</MudMainContent>
+</MudLayout>
+
+@code {
+	MudTheme NetChan = new MudTheme() {
+		Palette = new Palette() {
+			Primary = Colors.Blue.Accent1,
+			Secondary = Colors.Blue.Lighten3,
+			Background = Colors.Blue.Lighten5
+		},
+
+		LayoutProperties = new LayoutProperties() {
+			DefaultBorderRadius = "0",
+			AppbarMinHeight = "20px"
+		}
+	};
+}

@@ -1,0 +1,26 @@
+﻿@page "/"
+
+<MudGrid>
+	<MudItem xs="12">
+		<FrontpageCard Title="Welcome to NetChan" Content="Fuck Niggers" />
+	</MudItem>
+</MudGrid>
+
+@code {
+
+	public string WelcomeContent { get; set; }
+	public string NewsContent { get; set; }
+	public string[] Boards { get; set; }
+
+	protected override async Task OnInitializedAsync() {
+		var url = "asdf";
+		Console.WriteLine(url);
+		var result = await $"{url}/api/frontpage/all".GetJsonAsync<Dictionary<string, string>>();
+
+		foreach (var kv in result) {
+			Console.WriteLine($"{kv.Key} - {kv.Value}");
+		}
+
+		//WelcomeContent = result.GetValueOrDefault();
+	}
+}

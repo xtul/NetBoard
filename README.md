@@ -3,7 +3,7 @@
   <h1>NetBoard</h1>
 </p>
 
-NetBoard is an imageboard API using ASP<span>.NET Core 3.1. It is a hobby project and heavily work-in-progress. Many things are subject to change. A live version is available on [https://netchan.nl/](https://netchan.nl/).
+NetBoard is an imageboard API using ASP<span>.NET Core 5. It is a hobby project and heavily work-in-progress. Many things are subject to change. A live version is available on [https://netchan.nl/](https://netchan.nl/).
 
 For a web interface, please see my [NetChan](https://github.com/xtul/NetChan) repository.
 
