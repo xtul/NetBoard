@@ -9,7 +9,7 @@ For a web interface, please see my [NetChan](https://github.com/xtul/NetChan) re
 
 I started this project to learn to work with .NET technology stack. The primary focus is to make maintenance/expansion simple. For example, if a board has it's name changed, migration should be painless. Adding and customizing new boards should also be straightforward.
 
-Note: Both NetBoard and NetChan are currently undergoing major changes, with redesigns or complete rewrites of certain features.
+Note: Both NetBoard and NetChan are currently undergoing major changes, with complete rewrites of certain features.
 
 # Features
 ### Currently available
