@@ -77,8 +77,8 @@ namespace NetBoard {
 
 			services.AddControllers().AddJsonOptions(o => {
 				o.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
-				o.JsonSerializerOptions.IgnoreNullValues = true;
 				o.JsonSerializerOptions.IgnoreReadOnlyProperties = true;
+				o.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault;
 			});
 
 			//// only look for pages in "Pages/Controller/Action" format

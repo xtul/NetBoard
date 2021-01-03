@@ -26,7 +26,7 @@ namespace NetBoard.Controllers.Helpers {
 		/// <summary>
 		/// Prepares the post for storage.
 		/// </summary>
-		private void SetupPost(ref Board post, IPAddress userIp, IConfiguration config) {
+		private static void SetupPost(ref Board post, IPAddress userIp, IConfiguration config) {
 			if (ShadowBans<Board>.IsIpShadowbanned(userIp, config)) {
 				post.ShadowBanned = true;
 			}

@@ -7,6 +7,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Net;
 using System.Security.Cryptography;
+using System.Text.Json.Serialization;
 
 namespace NetBoard.Model.Data {
 	public class PostStructure {
@@ -93,6 +94,7 @@ namespace NetBoard.Model.Data {
 		/// Used in data transfer to determine whether given post came from GETting IP
 		/// </summary>
 		[NotMapped]
+		[JsonIgnore(Condition = JsonIgnoreCondition.Never)]
 		public bool You { get; set; } 
 		[NotMapped]
 		public string CaptchaCode { get; set; }
