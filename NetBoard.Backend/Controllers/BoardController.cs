@@ -289,11 +289,12 @@ namespace NetBoard.Controllers.Generic {
 			var userIp = HttpContext.Connection.RemoteIpAddress;
 			var threadPosts = await boardProvider.GetThreadAndResponses(threadId, -1);
 
+			if (threadPosts is null || !threadPosts.First().ShouldDisplayShadowbanned(userIp)) {
+				return BadRequest($"There is no thread with ID {threadId}.");
+			}
+
 			// only test when in response mode
 			if (threadId != 0) {
-				if (threadPosts is null || !threadPosts.First().ShouldDisplayShadowbanned(userIp)) {
-					return BadRequest($"There is no thread with ID {threadId}.");
-				}
 				if (threadPosts.First().Archived) {
 					return BadRequest("You can't respond to an archived thread.");
 				}
