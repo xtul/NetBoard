@@ -45,6 +45,7 @@ namespace NetBoard.Controllers.Generic {
 		private readonly IConfiguration _configuration;
 		private readonly ILogger<Board> _logger;
 		private readonly BoardProvider<Board> boardProvider;
+		private readonly PostCreator<Board> postCreator;
 
 		public BoardController(ApplicationDbContext context, IConfiguration configuration, ILogger<Board> logger) {
 			_context = context;
@@ -52,6 +53,7 @@ namespace NetBoard.Controllers.Generic {
 			_logger = logger;
 			MaxThreads = ThreadsPerPage * MaxPages;
 			boardProvider = new BoardProvider<Board>(_context);
+			postCreator = new PostCreator<Board>(_context, boardProvider, logger);
 		}
 
 		#endregion Constructor
@@ -283,66 +285,23 @@ namespace NetBoard.Controllers.Generic {
 			}
 		}
 
-		private async Task<ActionResult<Board>> Post(Board entity, int threadId = 0) {
+		private async Task<ActionResult<Board>> Post(Board post, int threadId = 0) {
 			var userIp = HttpContext.Connection.RemoteIpAddress;
+			var threadPosts = await boardProvider.GetThreadAndResponses(threadId, -1);
 
-			if (ShadowBans<Board>.IsIpShadowbanned(userIp, _configuration)) {
-				entity.ShadowBanned = true;
-			}
-
-			entity = FixPostedEntity(entity);
-			if (!entity.Password.IsNullOrEmptyWithTrim()) {
-				entity.SetPassword(entity.Password);
-			}
-
-			// response posting mode
-			if (threadId != 0) {				
-				var threadPosts = await boardProvider.GetThreadAndResponses(threadId, -1);
-				var op = threadPosts.FirstOrDefault();
-				if (threadPosts.Count == 0 || !op.ShouldDisplayShadowbanned(userIp)) {
+			// only test when in response mode
+			if (threadId != 0) {
+				if (threadPosts is null || !threadPosts.First().ShouldDisplayShadowbanned(userIp)) {
 					return BadRequest($"There is no thread with ID {threadId}.");
 				}
-				if (op.Archived) {
+				if (threadPosts.First().Archived) {
 					return BadRequest("You can't respond to an archived thread.");
 				}
-
-				HandleResponsePosting(entity, threadPosts.FirstOrDefault());
-				HandleLimitExceedings(threadPosts);
-
-			// topic posting mode
-			} else {
-				entity.Thread = null;
-				entity.LastPostDate = DateTime.UtcNow;
-				entity.PostedOn = DateTime.UtcNow;
-				entity.PosterIP = HttpContext.Connection.RemoteIpAddress.ToString();
-				_context.Set<Board>().Add(entity);
-				int boardThreadCount = boardProvider.GetTotalThreadCount();
-				await ArchiveOldThreadAsync(boardThreadCount);
 			}
 
+			await postCreator.Create(post, userIp, _configuration, threadPosts, MaxResponses, MaxImages, MaxThreads, ArchivedLifetime);
 
-			// save changes
-			await _context.SaveChangesAsync();
-			_logger.LogInformation(
-				string.Format("A post /{0}/{1} was made. It's a {2}.",
-								typeof(Board).Name.ToLower(),
-								entity.Id,
-								entity.Thread == null ? "new thread" : "response to /" + typeof(Board).Name.ToLower() + "/thread/" + entity.Thread
-				)
-			);
-
-			// if image token was provided try to handle it (done last because we need post ID)
-			if (entity.Image != null) {
-				entity = HandleImagePosting(entity, threadId == 0 ? ThumbType.thread : ThumbType.response);
-				if (entity == null) {
-					_logger.LogInformation("However, image saving has failed.");
-					return BadRequest("Error when posting image. Contact administration if this happens consistently.");
-				}
-			}
-
-			await _context.SaveChangesAsync();
-
-			return Created("post", new Dictionary<string, int> { { "id", entity.Id } });
+			return Created("post", new Dictionary<string, int> { { "id", post.Id } });
 		}		
 
 		// POST: Entity/report
@@ -433,20 +392,6 @@ namespace NetBoard.Controllers.Generic {
 		}
 
 		/// <summary>
-		/// Various stuff to clean up incoming entities, eg. nullify SpoilerImage if no Image was provided.
-		/// </summary>
-		/// <param name="entity">An entity to clean up.</param>
-		/// <returns>A cleaned up entity.</returns>
-		private Board FixPostedEntity(Board entity) {
-			if (entity.Image.IsNullOrEmptyWithTrim()) {
-				entity.Image = null;
-				entity.SpoilerImage = null;
-			}
-
-			return entity;
-		}
-
-		/// <summary>
 		/// Checks if post exists and if it is shadowbanned, determines if it should be returned.
 		/// </summary>
 		/// <param name="id">Post ID.</param>
@@ -477,120 +422,6 @@ namespace NetBoard.Controllers.Generic {
 		/// </summary>
 		public virtual string GetBoardName() {
 			return BoardName;
-		}
-
-		/// <summary>
-		/// Archives the oldest thread. Don't forget to save changes in DB.
-		/// </summary>
-		/// <param name="threadsAvailable">Amount of threads currently available.</param>
-		private async Task ArchiveOldThreadAsync(int threadsAvailable) {
-			if (threadsAvailable >= MaxThreads) {
-				var oldestThread = await boardProvider.GetOldestThread();
-				oldestThread.Archived = true;
-				_context.MarkedForDeletion.Add(new MarkedForDeletion { 
-					Board = typeof(Board).Name,
-					PostId = oldestThread.Id,
-					UtcDeletedOn = DateTime.UtcNow + ArchivedLifetime
-				});
-			}
-		}
-
-		/// <summary>
-		/// Marks the thread as past limits if required.
-		/// </summary>
-		/// <param name="thread"></param>
-		private void HandleLimitExceedings(List<Board> threadPosts) {
-			var op = threadPosts.FirstOrDefault();
-			var threadInfo = boardProvider.GetThreadInfo(threadPosts, MaxResponses, MaxImages);
-
-			var responseCountExists = threadInfo.TryGetValue("responseCount", out int responseCount);
-			var imageCountExists = threadInfo.TryGetValue("imageCount", out int imageCount);
-
-			if (!responseCountExists) responseCount = 0;
-			if (!imageCountExists) imageCount = 0;
-
-			if (responseCount >= MaxResponses || imageCount >= MaxImages)
-			{
-				op.PastLimits = true;
-			}
-		}
-
-		/// <summary>
-		/// Adds provided response to the database. Don't forget to save DB.
-		/// </summary>
-		private void HandleResponsePosting(Board response, Board thread) {
-			response.Thread = thread.Id;
-			response.PostedOn = DateTime.UtcNow;
-			response.Sticky = false;
-			response.PosterIP = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "localhost";
-			response.Content = response.Content.Replace("\r", "");
-			response.Content = response.Content.Trim('\n');
-
-			var isSaged = !string.IsNullOrEmpty(response.Options) && response.Options.ToUpper() == "SAGE";
-
-			// if saged, save it for administration
-			if (isSaged) {
-				_context.Sages.Add(new Sage {
-					TopicId = thread.Id,
-					Board = typeof(Board).Name
-				});
-			}
-
-			// bump the thread 
-			if ((!thread.PastLimits.HasValue || thread.PastLimits.Value == false) && !isSaged) {
-				thread.LastPostDate = DateTime.UtcNow;
-			}
-			
-			_context.Set<Board>().Add(response);
-		}
-
-		/// <summary>
-		/// Gets the image token from entity and verifies if it was enqueued.
-		/// Turns image token into image URI and moves the image from temporary directory to wwwroot/img.
-		/// It has to run after the post was made because it requires post ID to be assigned.
-		/// Don't forget to save changes.
-		/// </summary>
-		/// <param name="entity">Entity to take the token from.</param>
-		/// <returns>Modified entity or null if couldn't convert image.</returns>
-		private Board HandleImagePosting(Board entity, ThumbType mode) {
-			var errorString = "Tried to assign image token to a post";
-			var tempDir = Path.Combine(Path.GetDirectoryName(typeof(Startup).Assembly.Location), "tempImages");
-			var wwwroot = Path.Combine(Path.GetDirectoryName(typeof(Startup).Assembly.Location), "wwwroot");
-
-			// find entry in database
-			var queueEntry = _context.ImageQueue.Where(x => x.Token == entity.Image).FirstOrDefault();
-			if (queueEntry == null) {
-				_logger.LogError($"{errorString}, but no DB entry was found.");
-				return null;
-			}
-
-			// get image from temporary directory
-			var filePath = Path.Combine(tempDir, queueEntry.Filename);
-			if (!System.IO.File.Exists(filePath)) {
-				_logger.LogError($"{errorString}, but image was not found in temporary directory.");
-				return null;
-			}
-
-			// move to a persistent directory
-			var newFilePath = Path.Combine(wwwroot, "img", typeof(Board).Name.ToLower(), entity.Id.ToString());
-			if (!Directory.Exists(newFilePath)) {
-				Directory.CreateDirectory(newFilePath);
-			}
-			// skip timestamp that was added in image queue
-			var finalFileName = Path.GetFileName(queueEntry.Filename).Split('.').Skip(1).ToArray();
-			var newFileName = string.Join(".", finalFileName).Replace(" ", "_");
-			System.IO.File.Move(filePath, Path.Combine(newFilePath, newFileName));
-
-			// generate a thumbnail and save it to directory alongside original
-			var thumbnail = GenerateThumbnail(Path.Combine(newFilePath, newFileName), mode);
-
-			// since everything is OK, save everything to DB
-			// DB needs a relative path
-			var relativeImagePath = Path.Combine(newFilePath, newFileName).ToRelativePath("wwwroot");
-			queueEntry.AssignedPost = entity.Id;
-			entity.Image = relativeImagePath;
-
-			return entity;
 		}
 
 		#endregion Tools
@@ -640,7 +471,6 @@ namespace NetBoard.Controllers.Generic {
 
 		private async Task<ActionResult<Board>> AdministrativePost(Board entity, AdministrativeLevel posterLevel, int threadId = 0) {
 			var userIp = HttpContext.Connection.RemoteIpAddress;
-			entity = FixPostedEntity(entity);
 
 			entity.Password = null;
 			entity.PosterIP = "localhost";

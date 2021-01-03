@@ -1,13 +1,12 @@
-﻿using NetBoard.Model.ExtensionMethods;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
+﻿using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using NetBoard.Model.ExtensionMethods;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Security.Claims;
-using System.Security.Cryptography;
 using System.Net;
+using System.Security.Cryptography;
 
 namespace NetBoard.Model.Data {
 	public class PostStructure {

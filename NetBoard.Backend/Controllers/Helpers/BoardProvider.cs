@@ -85,10 +85,7 @@ namespace NetBoard.Controllers.Helpers {
 		/// Gets a thread by ID.
 		/// </summary>
 		public async Task<Board> GetThread(int id) {
-			return await _context.Set<Board>()
-									.AsNoTracking()
-									.Where(x => x.Id == id)
-									.FirstOrDefaultAsync();
+			return await _context.Set<Board>().FindAsync(id);
 		}
 
 		public async Task<List<Board>> GetThreadAndResponses(int id, int responseCount) {
@@ -202,6 +199,14 @@ namespace NetBoard.Controllers.Helpers {
 					thread.ElementAt(i).AsDTO(userIp, thread.First().Id);
 				}
 			}
+		}
+
+		public void RemoveThread(Board thread) {
+			_context.Set<Board>().Remove(thread);
+		}
+
+		public void RemoveThreads(Board[] threads) {
+			_context.Set<Board>().RemoveRange(threads);
 		}
 	}
 }
