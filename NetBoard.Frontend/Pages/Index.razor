@@ -1,26 +1,62 @@
 ﻿@page "/"
 
-<MudGrid>
-	<MudItem xs="12">
-		<FrontpageCard Title="Welcome to NetChan" Content="Fuck Niggers" />
-	</MudItem>
-</MudGrid>
+@if (!Loading) {
+	<Logo />
+	<MudGrid Justify="Justify.Center">
+		<MudItem lg="8" xs="12">
+			<FrontpageCard Title="Welcome to NetChan" Content="@WelcomeContent" />
+		</MudItem>
+	</MudGrid>
+	<MudGrid Justify="Justify.Center">
+		<MudItem lg="3" xs="12">
+			<FrontpageCard Title="Boards" Boards="@Boards" />
+		</MudItem>
+		<MudItem lg="5" xs="12">
+			<FrontpageCard Title="News" Content="@NewsContent" />
+		</MudItem>
+	</MudGrid>
+} else {
+	<MudGrid Justify="Justify.Center">
+		<MudItem lg="8" xs="12">
+			@if (LoadingError) {
+				<MudText Typo="Typo.h6" Align="Align.Center">Couldn't load NetChan. Please try again later.</MudText>
+			} else {
+				<MudText Typo="Typo.h6" Align="Align.Center">Loading NetChan.</MudText>
+			}
+		</MudItem>
+	</MudGrid>
+}
 
 @code {
-
-	public string WelcomeContent { get; set; }
-	public string NewsContent { get; set; }
-	public string[] Boards { get; set; }
+	public bool Loading { get; set; }
+	public bool LoadingError { get; set; }
+	public string[] WelcomeContent { get; set; }
+	public string[] NewsContent { get; set; }
+	public Dictionary<string, string> Boards { get; set; }
 
 	protected override async Task OnInitializedAsync() {
-		var url = "asdf";
-		Console.WriteLine(url);
-		var result = await $"{url}/api/frontpage/all".GetJsonAsync<Dictionary<string, string>>();
+		Loading = true;
 
-		foreach (var kv in result) {
-			Console.WriteLine($"{kv.Key} - {kv.Value}");
+		var url = config.GetSection("Api")["Url"];
+		IFlurlResponse response;
+		try {
+			response = await $"{url}/api/frontpage/all".AllowAnyHttpStatus().GetAsync();
+		} catch (FlurlHttpException) {
+			response = null;
 		}
 
-		//WelcomeContent = result.GetValueOrDefault();
+		if (response is not null && response.ResponseMessage.IsSuccessStatusCode) {
+			var result = await response.ResponseMessage.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+
+			WelcomeContent = result.GetValueOrDefault("about").Split(Environment.NewLine);
+			NewsContent = result.GetValueOrDefault("news").Split(Environment.NewLine);
+
+			var boards = result.GetValueOrDefault("boards");
+			Boards = JsonSerializer.Deserialize<Dictionary<string, string>>(boards);
+
+			Loading = false;
+		} else {
+			LoadingError = true;
+		}
 	}
 }

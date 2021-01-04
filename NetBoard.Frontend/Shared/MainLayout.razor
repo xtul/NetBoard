@@ -3,10 +3,11 @@
 <MudThemeProvider Theme="NetChan" />
 
 <MudLayout>
-	<MudText Typo="Typo.caption">[/g/ - /diy/ - /meta/]</MudText>
+	<BoardListBar Boards="@Boards"/>
 	<MudMainContent>
 		@Body
 	</MudMainContent>
+	<BoardListBar Boards="@Boards"/>
 </MudLayout>
 
 @code {
@@ -22,4 +23,19 @@
 			AppbarMinHeight = "20px"
 		}
 	};
+
+	public string[] Boards { get; set; }
+
+	protected override async Task OnInitializedAsync() {
+		var url = config.GetSection("Api")["Url"];
+		IFlurlResponse response;
+		try {
+			response = await $"{url}/api/frontpage/boards".GetAsync();
+		} catch {
+			return;
+		}
+
+		var boards = await response.ResponseMessage.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+		Boards = boards.Keys.ToArray();
+	}
 }

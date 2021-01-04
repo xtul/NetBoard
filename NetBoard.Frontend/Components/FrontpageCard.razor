@@ -1,17 +1,46 @@
 ﻿<MudCard>
-	<MudCardHeader>
+	<MudCardHeader Class="primary-card-header">
 		<CardHeaderContent>
 			<MudText Typo="Typo.h6">@Title</MudText>
 		</CardHeaderContent>
 	</MudCardHeader>
+	@if (Content != null) {
 	<MudCardContent>
-		<MudText>@Content</MudText>
+		@foreach (var line in Content) {
+			<MudText>@line</MudText>
+		}
 	</MudCardContent>
+	}
+	@if (Boards != null) {
+	<MudCardContent>
+		@foreach (var kv in Boards) {
+			<MudLink Href="@kv.Key">/@kv.Key/ - @kv.Value</MudLink>
+			@if (!Boards.Last().Equals(kv)) {
+				<br />
+			}
+		}
+	</MudCardContent>
+	}
+
 </MudCard>
 
 @code {
 	[Parameter]
 	public string Title { get; set; }
 	[Parameter]
-	public string Content { get; set; }
+	public string[] Content { get; set; }
+	[Parameter]
+	public Dictionary<string, string> Boards { get; set; }
+
+	protected override Task OnInitializedAsync() {
+		if (Content != null)
+		foreach (var line in Content) {
+			if (line == "\r\n") {
+				Console.WriteLine("BR");
+			} else {
+				Console.WriteLine(line ?? "asdf");
+			}
+		}
+		return base.OnInitializedAsync();
+	}
 }
