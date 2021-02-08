@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
-using static NetBoard.Model.Data.PostStructure;
+using static NetBoard.Model.Data.Post;
 
 namespace NetBoard.Controllers.Helpers {
 	public static class PosterExtensions {

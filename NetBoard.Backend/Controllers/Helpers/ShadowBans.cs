@@ -9,15 +9,15 @@ using System.Net;
 using System.Threading.Tasks;
 
 namespace NetBoard.Controllers.Helpers {
-	public static class ShadowBans<BoardPost> where BoardPost : PostStructure {
+	public static class ShadowBans {
 		/// <summary>
 		/// Removes posts that are not supposed to be shown to a given <paramref name="ip"/>.
 		/// </summary>
 		/// <param name="posts">A list of posts to filter.</param>
 		/// <param name="ip">Connecting user's IP.</param>
-		public static void FilterShadowbanned(ref List<BoardPost> posts, IPAddress ip) {
+		public static void FilterShadowbanned(ref List<Post> posts, IPAddress ip) {
 			// filter shadowbanned threads
-			var deletionList = new List<BoardPost>();
+			var deletionList = new List<Post>();
 			foreach (var post in posts) {
 				// if this shadowbanned post shouldn't be displayed, add it to deletion list
 				if (!post.ShouldDisplayShadowbanned(ip)) {
@@ -33,29 +33,28 @@ namespace NetBoard.Controllers.Helpers {
 		}
 
 		/// <summary>
-		/// Shadowbans this post's IP, updating info in DB and adding poster IP to banned list. Make sure to save changes to DB afterwards.
+		/// Shadowbans this post's IP.
 		/// </summary>
-		public static async Task ShadowbanPost(BoardPost post, ApplicationDbContext context, IConfiguration config, DateTime expiresOn, string reason) {
+		public static async Task ShadowbanPost(Post post, ApplicationDbContext context, IConfiguration queries, IConfiguration config, DateTime expiresOn, string reason, string board) {
 			var ipToBan = post.PosterIP;
+			var postsToShadowban = await context.Posts.FromSqlRaw(queries["GetPostsByIP"], board, ipToBan).ToListAsync();
 
 			// mark all posts from this IP as shadowbanned
-			var postsToShadowban = await context.Set<BoardPost>().Where(x => x.PosterIP == ipToBan).ToListAsync();
-			foreach (var postToShadowban in postsToShadowban) {
-				postToShadowban.ShadowBanned = true;
+			string postsToBanString = "";
+			for (int i = 0; i >= postsToShadowban.Count; i++) {
+				if (i != postsToShadowban.Count) {
+					postsToBanString += $"{postsToShadowban[i].Id}, ";
+				} else {
+					postsToBanString += $"{postsToShadowban[i].Id}";
+				}
 			}
+
+			context.Posts.FromSqlRaw(queries["SetPostsShadowbanned"].Replace("{BOARD}", board), postsToBanString).AsNoTracking();
 
 			// add this IP to appsettings
 			var shadowBanList = config.GetSection("Bans:ShadowBanList").GetChildren().Select(c => c.Value).ToList();
 			shadowBanList.Add(ipToBan);
 			AppsettingsManipulation.AddOrUpdateAppSetting("Bans:ShadowBanList", shadowBanList);
-
-			// store in DB
-			context.Bans.Add(new Ban {
-				ExpiresOn = expiresOn,
-				Reason = reason
-			});
-
-			await context.SaveChangesAsync();
 		}
 
 		public static bool IsIpShadowbanned(IPAddress userIp, IConfiguration config) {

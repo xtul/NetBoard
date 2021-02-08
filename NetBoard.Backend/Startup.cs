@@ -81,13 +81,6 @@ namespace NetBoard {
 				o.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault;
 			});
 
-			//// only look for pages in "Pages/Controller/Action" format
-			//services.Configure<RazorViewEngineOptions>(o => {
-			//		o.ViewLocationFormats.Clear();
-			//		o.ViewLocationFormats.Add("/Pages/{1}/{0}" + RazorViewEngine.ViewExtension);
-			//});
-			//services.AddRazorPages();
-
 			services.AddMemoryCache();
 			services.AddDataProtection()
 				.SetApplicationName("NetBoard")
@@ -183,8 +176,8 @@ namespace NetBoard {
 			app.UseEndpoints(endpoints => {
 				endpoints.MapControllerRoute(
 					name: "default",
-					pattern: "{controller}/{action=GetThreads}/{id?}");
-				//endpoints.MapRazorPages();
+					pattern: "{controller}/{action=GetThreads}/{id?}"
+				);					
 				endpoints.MapControllers();
 			});
 

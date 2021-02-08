@@ -1,0 +1,53 @@
+{
+	// {BOARD} - board short name (eg. g, diy)
+	"GetAllThreads": "SELECT * FROM netboard.net_{BOARD}_posts WHERE thread is null;",
+	"GetAllThreadsMin": "SELECT id FROM netboard.net_{BOARD}_posts WHERE thread is null", // skip ; - it's a part of a different query.
+	"GetOldestThread": "SELECT * FROM netboard.net_{BOARD}_posts WHERE archived = false and thread is null order by last_post_date desc limit 1;",
+	"GetThreadList": "SELECT * FROM netboard.net_{BOARD}_posts WHERE thread is null ORDER BY sticky = true DESC, last_post_date DESC;",
+	"GetArchivedThreads": "SELECT * FROM netboard.net_{BOARD}_posts WHERE archived = TRUE AND sticky = FALSE;",
+
+	// {BOARD} - board short name
+	// {0} - post/thread ID
+	"GetPostById": "SELECT * FROM netboard.net_{BOARD}_posts WHERE id = {0};",
+	"GetThreadAndResponses": "SELECT * FROM netboard.net_{BOARD}_posts WHERE id = {0} OR thread = {0};",
+	"GetResponses": "SELECT * FROM netboard.net_{BOARD}_posts WHERE thread = {0} ORDER BY id DESC;",
+	"RemoveThread": "DELETE FROM netboard.net_{BOARD}_posts WHERE id = {0} OR thread = {0};",
+	"RemovePost": "DELETE FROM netboard.net_{BOARD}_posts WHERE id = {0};",
+	"GetPostsByIP": "SELECT * FROM netboard.net_{BOARD}_posts WHERE poster_ip = {0};",
+
+	// {BOARD} - board short name
+	// {0} - post IDs [format: 1, 2, 3, 4]
+	"SetPostsShadowbanned": "UPDATE netboard.net_{BOARD}_posts SET shadow_banned = TRUE WHERE id IN ({0});",
+
+	// {BOARD} - board short name
+	// {0} - post/thread ID
+	// {1} - ID past which to search
+	"GetResponsesPastId": "SELECT * FROM netboard.net_{BOARD}_posts WHERE thread = {0} AND id > {1} ORDER BY id DESC;",
+
+	// {BOARD} - board short name
+	// {0} - threads per page [limit]
+	// {1} - (threads per page * current page) - threads per page [offset]
+	"GetThreadPage_OnlyFirstPage": "SELECT * FROM netboard.net_{BOARD}_posts AS t WHERE (t.thread IS NULL) AND (t.archived = false) OR (t.archived = true and (t.sticky = true)) ORDER BY t.sticky DESC, t.last_post_date DESC LIMIT {0};",
+	"GetThreadPage_OnlyFirstPage_Archived": "SELECT * FROM netboard.net_{BOARD}_posts AS t WHERE (t.thread IS NULL) AND (t.archived = true) OR (t.archived = true and (t.sticky = false)) ORDER BY t.sticky DESC, t.last_post_date DESC LIMIT {0};",
+	"GetThreadPage": "SELECT * FROM netboard.net_{BOARD}_posts AS t WHERE (t.thread IS NULL) AND (t.archived = false) OR (t.archived = true and (t.sticky = true)) ORDER BY t.sticky DESC, t.last_post_date DESC LIMIT {0} OFFSET {1};",
+	"GetThreadPage_Archived": "SELECT * FROM netboard.net_{BOARD}_posts AS t  WHERE (t.thread IS NULL) AND (t.archived = true) OR (t.archived = true and (t.sticky = false))  ORDER BY t.sticky DESC, t.last_post_date DESC LIMIT {0} OFFSET {1};",
+
+	// post creation - sorry, no way around
+	// {BOARD} - short board name
+	// {0} - image
+	// {1} - content
+	// {2} - name
+	// {3} - password
+	// {4} - posted_on
+	// {5} - spoiler_image
+	// {6} - subject
+	// {7} - archived
+	// {8} - poster_level
+	// {9} - thread
+	// {10} - sticky
+	// {11} - last_post_date
+	// {12} - poster_ip
+	// {13} - past_limits
+	// {14} - shadow_banned
+	"CreatePost": "INSERT INTO netboard.net_{BOARD}_posts (image,\"content\",\"name\",\"password\",posted_on,spoiler_image,subject,archived,poster_level,thread,sticky,last_post_date,poster_ip,past_limits,shadow_banned) VALUES ('{0}','{1}','{2}','{3}','{4}',{5},'{6}',{7},{8},{9},{10},'{11}','{12}',{13},{14});"
+}

@@ -18,9 +18,15 @@ namespace NetBoard.Model.Data {
 	public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>, int> {
 		public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
 
-		public DbSet<G> GPosts { get; set; }
-		public DbSet<Meta> MetaPosts { get; set; }
-		public DbSet<Diy> DiyPosts { get; set; }
+		/// <summary>
+		/// Used to make generic board queries.
+		/// </summary>
+		public DbSet<Post> Posts { get; set; }
+
+		// board dbsets will be obsolete in the future
+		// public DbSet<G> GPosts { get; set; }
+		// public DbSet<Meta> MetaPosts { get; set; }
+		// public DbSet<Diy> DiyPosts { get; set; }
 		public DbSet<Report> Reports { get; set; }
 		public DbSet<Sage> Sages { get; set; }
 		public DbSet<Ban> Bans { get; set; }
@@ -32,15 +38,16 @@ namespace NetBoard.Model.Data {
 			base.OnModelCreating(b);
 			b.HasDefaultSchema("netboard");
 
-
 			// configure all boards
 			// https://stackoverflow.com/a/49677172/11365088
-			var boards = b.Model.GetEntityTypes().Where(t => t.ClrType.IsSubclassOf(typeof(PostStructure)));
+			var boards = b.Model.GetEntityTypes().Where(t => t.ClrType.IsSubclassOf(typeof(Post)));
 			var configureMethod = GetType().GetTypeInfo().DeclaredMethods.Single(m => m.Name == nameof(ConfigureEntity));
 			var args = new object[] { b };
 			foreach (var entityType in boards) {
 				configureMethod.MakeGenericMethod(entityType.ClrType).Invoke(null, args);
 			}
+
+			b.Entity<Post>().ToView("posts").HasNoKey();
 
 			b.Entity<Report>().HasKey(x => x.Id);
 			b.Entity<Sage>().HasKey(x => x.Id);
@@ -71,10 +78,12 @@ namespace NetBoard.Model.Data {
 			}			
 		}
 
-		static void ConfigureEntity<T>(ModelBuilder builder) where T : PostStructure {
+		static void ConfigureEntity<T>(ModelBuilder builder) where T : Post {
 			var e = builder.Entity<T>();
 
-			e.ToTable(typeof(T).Name + "_posts");
+			if (typeof(T).Name != "poststructure") {
+				e.ToTable(typeof(T).Name + "_posts");
+			}
 			e.Property(p => p.Content).IsRequired();
 			e.Property(p => p.Name).HasDefaultValue("Anonymous");
 			e.Property(p => p.SpoilerImage).HasDefaultValue(false);

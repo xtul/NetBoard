@@ -10,7 +10,7 @@ namespace NetBoard.ExtensionMethods {
 	public static class BoardControllerFinder {
 		public static IEnumerable<Type> GetBoardControllers() {
 			var assembly = Assembly.GetExecutingAssembly().GetName().Name;
-			return Assembly.Load(assembly).GetTypes().Where(x => x.InheritsFrom(typeof(BoardController<>)));
+			return Assembly.Load(assembly).GetTypes().Where(x => x.InheritsFrom(typeof(BoardController)));
 		}
 
 		public static List<string> GetBoardsAsFullNameStrings() {
@@ -24,7 +24,7 @@ namespace NetBoard.ExtensionMethods {
 
 		public static Type GetBoard(string board) {
 			var assembly = Assembly.GetExecutingAssembly().GetName().Name;
-			return Assembly.Load(assembly).GetTypes().Where(x => x.InheritsFrom(typeof(BoardController<>))).First(x => x.Name.ToUpper() == board.ToUpper());
+			return Assembly.Load(assembly).GetTypes().Where(x => x.InheritsFrom(typeof(BoardController))).First(x => x.Name.ToUpper() == board.ToUpper());
 		}
 
 		public static bool InheritsFrom(this Type t1, Type t2) {

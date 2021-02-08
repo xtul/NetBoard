@@ -4,10 +4,9 @@ using Microsoft.Extensions.DependencyInjection;
 using MudBlazor;
 using MudBlazor.Services;
 using System;
-using System.IO;
 using System.Net.Http;
-using System.Reflection;
 using System.Threading.Tasks;
+using Blazored.LocalStorage;
 
 namespace NetBoard.Frontend {
 	public static class Program {
@@ -19,6 +18,11 @@ namespace NetBoard.Frontend {
 			builder.Services.AddMudBlazorDialog();
 			builder.Services.AddMudBlazorSnackbar();
 			builder.Services.AddMudBlazorResizeListener();
+
+			builder.Services.AddTransient(sp => new HttpClient {
+				BaseAddress = new Uri(builder.HostEnvironment.BaseAddress)
+			})
+				.AddBlazoredLocalStorage();
 
 			builder.Services.AddOidcAuthentication(options => {
 				// Configure your authentication provider options here.

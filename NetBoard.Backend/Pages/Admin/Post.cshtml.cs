@@ -28,7 +28,7 @@ namespace NetBoard.Pages.Admin {
 		public List<string> BoardOptions {
 			get { return BoardFinder.GetBoardsAsStrings(); }
 		}
-		public PostStructure FoundPostData { get; set; }
+		public Post FoundPostData { get; set; }
 
 		[TempData]
 		public string ErrorMessage { get; set; }
@@ -61,7 +61,7 @@ namespace NetBoard.Pages.Admin {
 			}
 
 			if (board != null && postId != 0) {
-				FoundPostData = await _context.FindAsync(BoardFinder.GetBoard(Board), postId) as PostStructure;
+				FoundPostData = await _context.FindAsync(BoardFinder.GetBoard(Board), postId) as Post;
 			}
 			return Page();
 		}

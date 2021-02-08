@@ -1,0 +1,199 @@
+﻿@inject Blazored.LocalStorage.ILocalStorageService _localStorage
+
+<MudElement HtmlTag="div" Class="@(IsOP ? "post-card-op" : "post-card")">
+	<!-- top row - file info -->
+	<MudElement HtmlTag="div" Class="@(IsThreadHidden ? "post-hidden" : "")">
+		@if (IsOP) {
+		<MudLink @onclick="ToggleHideThread">
+			@if (IsThreadHidden) {
+				<MudIcon Icon="@Icons.Material.Filled.AddBox" Size="Size.Small" Class="hide-icon" />
+			} else {
+				<MudIcon Icon="@Icons.Material.Filled.Close" Size="Size.Small" Class="hide-icon" />
+			}
+		</MudLink>
+		}
+		@if (PostData.Image is not null) {
+			<MudText Typo="Typo.subtitle2" Inline="true">File:</MudText>
+			<MudLink Typo="Typo.subtitle2" title="@GetFilenameFromPath(true)" Href="@PostData.Image">@GetFilenameFromPath()</MudLink>
+			<MudText Typo="Typo.subtitle2" Inline="true">@PostData.FileDetails</MudText>
+			@if (IsThreadHidden) {
+				<MudText Typo="Typo.subtitle2" Inline="true" Color="Color.Success">&nbsp;@PostData.Subject</MudText>
+			}
+		}
+	</MudElement>
+	<!-- image - stretches if clicked -->
+	@if (PostData.Image is not null && !IsThreadHidden) {
+		<MudElement HtmlTag="div" Class="@(IsImageStretched ? "post-image post-image-stretch" : "post-image")">
+			<MudElement HtmlTag="img"
+						src="@CurrentImagePath"
+						Class="@(IsImageStretched ? "post-image post-image-stretch" : "post-image")"
+						@ref="Image"
+						@onclick="ToggleImage"
+						onerror="this.onerror=null; this.src='/img/notfound.png'" />
+		</MudElement>
+	}
+	@if (!IsThreadHidden) {
+		<MudElement HtmlTag="div">
+			<MudElement HtmlTag="div" Class="post-info">
+				<!-- poster info -->
+				<MudText Typo="Typo.subtitle2" Inline="true" Style="@GetColorFromPosterLevel(PostData.PosterLevel)">@PostData.Name</MudText>
+				<MudText Typo="Typo.subtitle2" Inline="true" Color="Color.Success">@PostData.Subject</MudText>
+				<MudText Typo="Typo.subtitle2" Inline="true">@PrettyLocalTime(PostData.PostedOn)</MudText>
+				<MudLink Typo="Typo.subtitle2">No</MudLink><span>.</span>
+				<MudLink Typo="Typo.subtitle2">@PostData.Id</MudLink>
+				@if (Replies.Count > 0) {
+					foreach (var reply in Replies) {
+						<MudLink Typo="Typo.subtitle2">>>@reply</MudLink>
+						@if (Replies.Last() != reply) {
+							<MudText Typo="Typo.subtitle2" Inline="true">,&nbsp;</MudText>
+						}
+					}
+				}
+			</MudElement>
+			<!-- post content -->
+			<MudText Typo="Typo.body2">@PostData.Content</MudText>
+		</MudElement>
+	}
+</MudElement>
+
+@code {
+	[Parameter]
+	public Post PostData { get; set; }
+	[Parameter]
+	public bool IsOP { get; set; }
+	[Parameter]
+	public bool IsThreadHidden { get; set; }
+	[Parameter]
+	public EventCallback<bool> OnThreadUnhidden { get; set; }
+	public List<int> Replies { get; set; }
+
+	private MudElement Image;
+	private string CurrentImagePath;
+	private bool IsImageStretched;
+
+	protected override void OnInitialized() {
+		CurrentImagePath = GetThumbnailPath();
+		Replies = new List<int>();
+	}
+
+	public string GetFilenameFromPath(bool getFull = false) {
+		var path = PostData.Image;
+
+		if (string.IsNullOrEmpty(path)) {
+			return "";
+		}
+
+		var splitUri = path.Split("\\");
+
+		// different platforms may use different slash direction...
+		if (splitUri.Length == 1) {
+			splitUri = path.Split("/");
+		}
+
+		var filename = splitUri.Last();
+		var textSplit = filename.Split(".").ToList();
+		var ext = "." + textSplit.Last();
+
+		if (!getFull && filename.Length - ext.Length >= 16) {
+			textSplit.Remove(textSplit.Last());
+			var fileName = string.Join(".", textSplit);
+			var shortenedText = fileName.Substring(0, 15);
+			shortenedText += "(...)";
+			shortenedText += ext;
+			return shortenedText;
+		}
+
+		return filename;
+	}
+
+	/// <summary>
+	/// Returns a thumbnail from the full path.
+	/// </summary>
+	public string GetThumbnailPath() {
+		var fullPath = PostData.Image;
+
+		if (string.IsNullOrEmpty(fullPath)) {
+			return "";
+		}
+
+		var splitUri = fullPath.Split(".");
+		splitUri[splitUri.Length - 2] += "s";
+		splitUri[splitUri.Length - 1] = "jpg";
+		return string.Join(".", splitUri);
+	}
+
+	/// <summary>
+	/// Toggles between thumbnail and full image.
+	/// </summary>
+	public void ToggleImage(MouseEventArgs e) {
+		var thumbPath = GetThumbnailPath();
+
+		// currently a thumbnail, convert to full image
+		if (CurrentImagePath == thumbPath) {
+			CurrentImagePath = PostData.Image;
+			IsImageStretched = true;
+			// currently a full image, convert to thumbnail
+		} else {
+			CurrentImagePath = thumbPath;
+			IsImageStretched = false;
+		}
+	}
+
+	public string GetColorFromPosterLevel(int posterLevel) {
+		string result = "color:var(--mud-palette-";
+		string color;
+		switch (posterLevel) {
+			case 2:
+				color = "error)";
+				break;
+			case 1:
+				color = "warning)";
+				break;
+			default:
+				color = "info)";
+				break;
+		}
+		return result + color + ";";
+	}
+
+	public string PrettyLocalTime(DateTime UTC) {
+		var local = UTC.ToLocalTime();
+
+		var minutesSince = (int)(DateTime.Now - local).TotalMinutes;
+		if (minutesSince < 60) {
+			return $"{local} ({minutesSince} minutes ago)";
+		}
+		var hoursSince = (int)(DateTime.Now - local).TotalHours;
+		if (hoursSince < 24) {
+			return $"{local} ({hoursSince} hours ago)";
+		}
+		var daysSince = (int)(DateTime.Now - local).TotalDays;
+		if (daysSince < 365) {
+			if (daysSince == 1) {
+				return $"{local} (yesterday)";
+			}
+			return $"{local} ({daysSince} days ago)";
+		}
+
+		return $"{local} (over a year ago)";
+	}
+
+	public async Task ToggleHideThread() {
+		IsThreadHidden = !IsThreadHidden;
+
+		var hiddenThreads = await _localStorage.GetItemAsync<List<int>>("hiddenThreads");
+
+		if (IsThreadHidden) {
+			if (hiddenThreads is not null) {
+				hiddenThreads.Add(PostData.Id);
+				await _localStorage.SetItemAsync<List<int>>("hiddenThreads", hiddenThreads);
+			} else {
+				await _localStorage.SetItemAsync<List<int>>("hiddenThreads", new List<int>() { PostData.Id });
+			}
+		} else {
+			hiddenThreads.Remove(PostData.Id);
+			await _localStorage.SetItemAsync<List<int>>("hiddenThreads", hiddenThreads);
+			await OnThreadUnhidden.InvokeAsync();
+		}
+	}
+}

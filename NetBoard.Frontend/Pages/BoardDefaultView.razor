@@ -1,0 +1,111 @@
+﻿@page "/{Board}"
+@page "/{Board}/{page:int}"
+@layout BoardLayout
+@using Newtonsoft.Json;
+@using Newtonsoft.Json.Linq;
+@inject Blazored.LocalStorage.ILocalStorageService _localStorage
+
+@if (Loaded) {
+	@if (NoSuchBoard) {
+		<MudText>This board does not exist.</MudText>
+	} else {
+		<hr class="w60" />
+		<MudText Typo="Typo.h4" Align="Align.Center" Class="margin-15px">/@Board/ - @BoardLongName</MudText>
+		<MudText Typo="Typo.h4" Align="Align.Center" Class="margin-15px">
+			<MudText Typo="Typo.h4" Inline="true">
+				[<MudLink Typo="Typo.h4">Start a New Thread</MudLink>]
+			</MudText>
+		</MudText>
+		<hr class="w80" />
+
+		if (Threads is not null) {
+			foreach (var thread in Threads) {
+				<PostCard IsOP="true" PostData="@thread" IsThreadHidden="@thread.Hidden" OnThreadUnhidden="() => Console.WriteLine(thread.Hidden)"/>
+				if (thread.Responses is not null && !thread.Hidden) {
+					foreach (var response in thread.Responses) {
+						<PostCard IsOP="false" PostData="@response" />
+					}
+				}
+			}
+		}
+	}
+}
+
+@if (Loaded && Boards != null) {
+	<BoardListBar Boards="@Boards" Bottom="false" />
+	<BoardListBar Boards="@Boards" Bottom="true" />
+}
+
+@code {
+	[Parameter] public string Board { get; set; }
+	[Parameter] public int Page { get; set; } = 1;
+	[Parameter] public string BoardLongName { get; set; }
+	public bool Loaded { get; set; }
+	public bool NoSuchBoard { get; set; }
+	public string[] Boards { get; set; }
+	public List<Post> Threads { get; set; }
+
+	protected override async Task OnParametersSetAsync() {
+		await GetBoards();
+
+		var response = await GetApiResponse($"/api/{Board}/{Page}");
+		if (response is null) {
+			NoSuchBoard = true;
+			return;
+		}
+
+		var result = await response.ResponseMessage.Content.ReadAsStringAsync();
+		var board = JsonConvert.DeserializeObject<BoardResponse>(result);
+
+		var obj = JObject.Parse(result);
+
+		Threads = board.Threads;
+		foreach (var thread in Threads) {
+			if (await thread.IsHidden(_localStorage)) {
+				thread.Hidden = true;
+			}
+		}
+
+		BoardLongName = obj["pageData"]["boardLong"].ToString();
+
+		Loaded = true;
+	}
+
+	private async Task GetBoards() {
+		var url = config.GetSection("Api")["Url"];
+		IFlurlResponse response;
+		try {
+			response = await $"{url}/api/frontpage/boards".GetAsync();
+		} catch {
+			return;
+		}
+
+		var boards = await response.ResponseMessage.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+		Boards = boards.Keys.ToArray();
+	}
+
+	private async Task<IFlurlResponse> GetApiResponse(string endpoint) {
+		var url = config.GetSection("Api")["Url"];
+		IFlurlResponse response;
+		try {
+			response = await $"{url}{endpoint}".GetAsync();
+		} catch {
+			return null;
+		}
+
+		return response;
+	}
+
+	private List<Dictionary<string, object>> GetThreadList(JObject obj) {
+		var threadList = new List<Dictionary<string, object>>();
+		foreach (var thread in obj["threads"]) {
+			if (thread["responses"] is not null) {
+				thread["responses"].ToObject<Dictionary<string, object>[]>();
+			}
+			threadList.Add(thread.ToObject<Dictionary<string, object>>());
+
+		}
+
+		return threadList;
+	}
+}

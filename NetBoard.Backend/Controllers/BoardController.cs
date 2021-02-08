@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -12,15 +13,15 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using static NetBoard.Controllers.Helpers.ImageManipulation;
-using static NetBoard.Model.Data.PostStructure;
+using static NetBoard.Model.Data.Post;
 
 namespace NetBoard.Controllers.Generic
 {
+	[Route("api/{board}")]
 	[ApiController]
-	public class BoardController<Board> : ControllerBase where Board : PostStructure {
+	public class BoardController : ControllerBase {
 		#region Board rules
 
-		public string BoardName = "Unnamed Board";
 		public int MaxResponses = 500;
 		private readonly int ThreadsPerPage = 10;
 		public int MaxPages = 10;
@@ -36,17 +37,17 @@ namespace NetBoard.Controllers.Generic
 		#region Constructor
 		private readonly ApplicationDbContext _context;
 		private readonly IConfiguration _configuration;
-		private readonly ILogger<Board> _logger;
-		private readonly BoardProvider<Board> boardProvider;
-		private readonly PostCreator<Board> postCreator;
+		private readonly ILogger<Post> _logger;
+		private readonly BoardProvider boardProvider;
+		private readonly PostCreator postCreator;
 
-		public BoardController(ApplicationDbContext context, IConfiguration configuration, ILogger<Board> logger) {
+		public BoardController(ApplicationDbContext context, IConfiguration configuration, ILogger<Post> logger) {
 			_context = context;
 			_configuration = configuration;
 			_logger = logger;
 			MaxThreads = ThreadsPerPage * MaxPages;
-			boardProvider = new BoardProvider<Board>(_context);
-			postCreator = new PostCreator<Board>(_context, boardProvider, logger);
+			boardProvider = new BoardProvider(context, configuration);
+			postCreator = new PostCreator(_context, boardProvider, logger, configuration);
 		}
 
 		#endregion Constructor
@@ -61,6 +62,7 @@ namespace NetBoard.Controllers.Generic
 		[HttpGet("{mode}")]
 		public virtual async Task<ActionResult<Dictionary<string, object>>> GetThreads(string mode) {
 			var userIp = HttpContext.Connection.RemoteIpAddress;
+			var board = RouteData.Values["board"].ToString();
 
 			// determine how to display available threads
 			// list - only OPs
@@ -69,7 +71,7 @@ namespace NetBoard.Controllers.Generic
 			var list = false;
 			var archive = false;
 			var pageNumber = 0;
-			var totalThreadCount = boardProvider.GetTotalThreadCount();
+			var totalThreadCount = boardProvider.GetTotalThreadCount(board);
 			if (totalThreadCount < 1) return Ok("No threads on this board.");
 			var pageCount = (int)Math.Ceiling((double)totalThreadCount / ThreadsPerPage);
 			if (mode == "list") {
@@ -83,17 +85,16 @@ namespace NetBoard.Controllers.Generic
 			}
 			
 			// get all threads
-			List<Board> threads;
+			List<Post> threads;
 			if (list) {
-				threads = await boardProvider.GetThreadList();
+				threads = await boardProvider.GetThreadList(board);
 			} else {
-				threads = await boardProvider.GetThreadPage(pageNumber, totalThreadCount, ThreadsPerPage, archive);
+				threads = await boardProvider.GetThreadPage(pageNumber, totalThreadCount, ThreadsPerPage, archive, board);
 			}
 
 			// filter shadowbanned posts
-			ShadowBans<Board>.FilterShadowbanned(ref threads, userIp);
+			ShadowBans.FilterShadowbanned(ref threads, userIp);
 
-			// prepare threads for response (ie. cut undesired data)
 			int previewLength = int.Parse(_configuration["PreviewLength"]);
 			string cutoffText = _configuration["CutoffText"];
 
@@ -109,14 +110,14 @@ namespace NetBoard.Controllers.Generic
 
 				// otherwise add responses to this thread ("classic" mode)
 				} else {
-					var lastResponses = await boardProvider.GetLastResponses(3, thread.Id);
+					var lastResponses = await boardProvider.GetLastResponses(3, thread.Id, board);
 
 					// DTOify responses
 					if (lastResponses.Count > 0) {
-						var tempList = new List<PostStructure>();
+						var tempList = new List<Post>();
 						foreach (var r in lastResponses) {
 							r.AsDTO(previewLength, cutoffText, userIp, thread.Id);
-							tempList.Insert(0, r); // .Add() would reverse the ordering
+							tempList.Add(r); 
 						}
 						thread.Responses = tempList;
 					}
@@ -128,12 +129,14 @@ namespace NetBoard.Controllers.Generic
 			Dictionary<string, object> pageData;
 			if (list) {
 				pageData = new Dictionary<string, object> {
-					{ "board", typeof(Board).Name.ToLower() },
+					{ "board", board },
+					{ "boardLong", GetBoardName(board) },
 					{ "totalThreads", totalThreadCount },
 				};
 			} else {
 				pageData = new Dictionary<string, object> {
-					{ "board", typeof(Board).Name.ToLower() },
+					{ "board", board },
+					{ "boardLong", GetBoardName(board) },
 					{ "currentPage", pageNumber },
 					{ "pageCount", pageCount },
 					{ "totalThreads", totalThreadCount },
@@ -156,7 +159,8 @@ namespace NetBoard.Controllers.Generic
 		[HttpGet("thread/{id}")]
 		public virtual async Task<ActionResult<Dictionary<string, object>>> GetThread(int id) {
 			var userIp = HttpContext.Connection.RemoteIpAddress;
-			var posts = await boardProvider.GetThreadAndResponses(id, -1);
+			var board = RouteData.Values["board"].ToString();
+			var posts = await boardProvider.GetLastResponses(-1, id, board);
 			var op = posts.FirstOrDefault();
 
 			if (posts.Count == 0 || !op.ShouldDisplayShadowbanned(userIp)) {
@@ -170,7 +174,7 @@ namespace NetBoard.Controllers.Generic
 			boardProvider.MakeThreadDTO(posts, userIp);
 
 			var result = new Dictionary<string, object> {
-				{ "board", typeof(Board).Name.ToLower() },
+				{ "board", board },
 				{ "data", threadInfo },
 				{ "posts", posts }
 			};
@@ -184,12 +188,13 @@ namespace NetBoard.Controllers.Generic
 		/// </summary>
 		[HttpGet("thread/{id}/{lastId}")]
 		public virtual async Task<ActionResult<Dictionary<string, object>>> GetNewPosts(int id, int lastId) {
+			var board = RouteData.Values["board"].ToString();
 			// check if this thread exists
 			var userIp = HttpContext.Connection.RemoteIpAddress;
-			if (!await ThreadExists(id, userIp)) return BadRequest($"There's no thread with ID {id}.");
+			if (!await ThreadExists(id, userIp, board)) return BadRequest($"There's no thread with ID {id}.");
 
 			// get new responses
-			var replies = await boardProvider.GetResponsesPastId(id, lastId);
+			var replies = await boardProvider.GetResponsesPastId(id, lastId, board);
 
 			if (replies.Count == 0) {
 				return BadRequest("No new replies.");
@@ -201,7 +206,7 @@ namespace NetBoard.Controllers.Generic
 			boardProvider.MakeThreadDTO(replies, userIp);
 
 			var result = new Dictionary<string, object>() {
-				{ "board", typeof(Board).Name.ToLower() },
+				{ "board", board },
 				{ "data", threadInfo },
 				{ "posts", replies }
 			};
@@ -214,14 +219,15 @@ namespace NetBoard.Controllers.Generic
 		/// Gets a single post.
 		/// </summary>
 		[HttpGet("post/{id}")]
-		public virtual async Task<ActionResult<PostStructure>> GetPost(int id) {
+		public virtual async Task<ActionResult<Post>> GetPost(int id) {
 			var userIp = HttpContext.Connection.RemoteIpAddress;
+			var board = RouteData.Values["board"].ToString();
 
-			if (!await PostExists(id, userIp)) {
+			if (!await PostExists(id, userIp, board)) {
 				return BadRequest($"There's no post with ID {id}.");
 			}
 
-			var post = await boardProvider.GetPostById(id);
+			var post = await boardProvider.GetPostById(id, board);
 			var isThread = post.Thread.HasValue;
 			post.AsDTO(userIp, post.Thread, isThread);
 
@@ -236,12 +242,13 @@ namespace NetBoard.Controllers.Generic
 		[HttpGet("post/{id}/thread")]
 		public virtual async Task<ActionResult> GetPostThread(int id) {
 			var userIp = HttpContext.Connection.RemoteIpAddress;
+			var board = RouteData.Values["board"].ToString();
 
-			if (!await PostExists(id, userIp)) {
+			if (!await PostExists(id, userIp, board)) {
 				return BadRequest($"There's no post with ID {id}.");
 			}
 
-			var post = await boardProvider.GetPostById(id);
+			var post = await boardProvider.GetPostById(id, board);
 			var thread = post.Thread;
 
 			var response = new Dictionary<string, int>();
@@ -260,9 +267,9 @@ namespace NetBoard.Controllers.Generic
 
 		// POST: Entity
 		[HttpPost]
-		public virtual async Task<ActionResult<Board>> CreateThread([Bind("Image, Content, Name, Password, Subject, Options, CaptchaCode")] Board entity) {
+		public virtual async Task<ActionResult<Post>> CreateThread([Bind("Image, Content, Name, Password, Subject, Options, CaptchaCode")] Post entity) {
 			if (string.IsNullOrEmpty(entity.CaptchaCode) || await Captcha.IsCaptchaValid(entity.CaptchaCode, _configuration)) {
-				return await Post(entity);
+				return await Post(entity, RouteData.Values["board"].ToString());
 			} else {
 				return BadRequest("Invalid captcha");
 			}
@@ -270,17 +277,17 @@ namespace NetBoard.Controllers.Generic
 
 		// POST: Entity/thread/42
 		[HttpPost("thread/{threadId}")]
-		public virtual async Task<ActionResult<Board>> CreateResponse([Bind("Content, Name, Password, Options, CaptchaCode")] Board entity, int threadId) {
+		public virtual async Task<ActionResult<Post>> CreateResponse([Bind("Content, Name, Password, Options, CaptchaCode")] Post entity, int threadId) {
 			if (string.IsNullOrEmpty(entity.CaptchaCode) || await Captcha.IsCaptchaValid(entity.CaptchaCode, _configuration)) {
-				return await Post(entity, threadId);
+				return await Post(entity, RouteData.Values["board"].ToString(), threadId);
 			} else {
 				return BadRequest("Invalid captcha");
 			}
 		}
 
-		private async Task<ActionResult<Board>> Post(Board post, int threadId = 0) {
+		private async Task<ActionResult<Post>> Post(Post post, string board, int threadId = 0, bool admin = false) {	
 			var userIp = HttpContext.Connection.RemoteIpAddress;
-			var threadPosts = await boardProvider.GetThreadAndResponses(threadId, -1);
+			var threadPosts = await boardProvider.GetThreadAndResponses(threadId, -1, board);
 
 			if (threadPosts is null || !threadPosts.First().ShouldDisplayShadowbanned(userIp)) {
 				return BadRequest($"There is no thread with ID {threadId}.");
@@ -288,12 +295,12 @@ namespace NetBoard.Controllers.Generic
 
 			// only test when in response mode
 			if (threadId != 0) {
-				if (threadPosts.First().Archived) {
+				if (threadPosts.First().Archived && !admin) {
 					return BadRequest("You can't respond to an archived thread.");
 				}
 			}
 
-			await postCreator.Create(post, userIp, _configuration, threadPosts, MaxResponses, MaxImages, MaxThreads, ArchivedLifetime);
+			await postCreator.Create(post, userIp, _configuration, threadPosts, MaxResponses, MaxImages, MaxThreads, ArchivedLifetime, board);
 
 			return Created("post", new Dictionary<string, int> { { "id", post.Id } });
 		}		
@@ -306,12 +313,13 @@ namespace NetBoard.Controllers.Generic
 				return BadRequest("Invalid captcha");
 			}
 
-			if (!await PostExists(report.PostId, userIp)) {
+			var board = RouteData.Values["board"].ToString();
+			if (!await PostExists(report.PostId, userIp, board)) {
 				return BadRequest($"There is no post with ID {report.PostId}.");
 			}
 
 			report.Date = DateTime.UtcNow;
-			report.PostBoard = typeof(Board).Name;
+			report.PostBoard = board;
 			report.ReportingIP = HttpContext.Connection.RemoteIpAddress.ToString();
 
 			_context.Reports.Add(report);
@@ -326,8 +334,9 @@ namespace NetBoard.Controllers.Generic
 
 		// DELETE: Entity/post/42
 		[HttpDelete("post/{id}")]
-		public virtual async Task<ActionResult<Board>> DeleteEntity([FromBody] Delete delete, int id, [FromQuery] bool onlyImage = false){
-			var entity = await _context.Set<Board>().FindAsync(id);
+		public virtual async Task<ActionResult<Post>> DeletePost([FromBody] Delete delete, int id, [FromQuery] bool onlyImage = false){
+			var board = RouteData.Values["board"].ToString();
+			var entity = await boardProvider.GetPostById(id, board);
 			if (entity == null) {
 				return BadRequest("Post with this ID was not found.");
 			}
@@ -335,15 +344,15 @@ namespace NetBoard.Controllers.Generic
 				return BadRequest("Wrong password.");
 			}
 			if (!onlyImage) {
-				_context.Set<Board>().Remove(entity);
 				if (entity.Thread == null) {
-					var responses = await _context.Set<Board>().Where(x => x.Thread == id).ToArrayAsync();
-					_context.Set<Board>().RemoveRange(responses);
+					await boardProvider.RemoveThread(id, board);
+				} else {
+					await boardProvider.RemovePost(id, board);
 				}
-				DeleteImage(typeof(Board).Name, id);
+				DeleteImage(board, id);
 			} else {
 				entity.Image = null;
-				DeleteImage(typeof(Board).Name, id);
+				DeleteImage(board, id);
 			}
 			await _context.SaveChangesAsync();
 			_logger.LogInformation($"A post with ID {id} was deleted.");
@@ -360,29 +369,26 @@ namespace NetBoard.Controllers.Generic
 		[HttpPost("del")]
 		[LoopbackOnly]
 		public virtual async Task RemoveArchived() {
-			// I regret deciding on this approach to generic controller. I regret it so much.
-			var deleteList = new List<Board>();
-
-			var archived = await _context.Set<Board>().Where(x => x.Archived && !x.Sticky).ToArrayAsync();
+			var board = RouteData.Values["board"].ToString();
+			var archivedThreads = await boardProvider.GetArchivedThreads();
+			var deleteList = new List<Post>();
 
 			// add thread responses to deletion
-			foreach (var thread in archived) {
-				var archivedResponses = await _context.Set<Board>().Where(x => x.Thread == thread.Id).ToArrayAsync();
+			foreach (var thread in archivedThreads) {
+				var archivedResponses = await boardProvider.GetLastResponses(0, thread.Id, board);
 				deleteList.AddRange(archivedResponses);
 
 				// also delete images
 				foreach (var response in archivedResponses) {
 					if (!string.IsNullOrEmpty(response.Image)) {
-						DeleteImage(typeof(Board).Name, response.Id);
+						DeleteImage(board, response.Id);
 					}
 				}
-				DeleteImage(typeof(Board).Name, thread.Id);
+				DeleteImage(board, thread.Id);
 			}
-			deleteList.AddRange(archived);
+			deleteList.AddRange(archivedThreads);
 
-			_context.Set<Board>().RemoveRange(deleteList);
-
-			await _context.SaveChangesAsync();
+			await boardProvider.RemoveThreads(deleteList.Select(p => p.Id).ToArray(), board);
 		}
 
 		/// <summary>
@@ -390,8 +396,8 @@ namespace NetBoard.Controllers.Generic
 		/// </summary>
 		/// <param name="id">Post ID.</param>
 		/// <param name="userIp">Connecting IP used to check if shadowbanned post should be displayed.</param>
-		private async Task<bool> PostExists(int id, IPAddress userIp) {
-			var post = await _context.Set<Board>().Where(e => e.Id == id).FirstOrDefaultAsync();
+		private async Task<bool> PostExists(int id, IPAddress userIp, string board) {
+			var post = await boardProvider.GetPostById(id, board);
 			if (post != null) {
 				return post.ShouldDisplayShadowbanned(userIp);
 			}
@@ -403,8 +409,8 @@ namespace NetBoard.Controllers.Generic
 		/// </summary>
 		/// <param name="id">Thread ID.</param>
 		/// <param name="userIp">Connecting IP used to check if shadowbanned thread should be displayed.</param>
-		private async Task<bool> ThreadExists(int id, IPAddress userIp) {
-			var post = await _context.Set<Board>().Where(e => e.Id == id && e.Thread == null).FirstOrDefaultAsync();
+		private async Task<bool> ThreadExists(int id, IPAddress userIp, string board) {
+			var post = await boardProvider.GetThread(id, board);
 			if (post != null) {
 				return post.ShouldDisplayShadowbanned(userIp);
 			}
@@ -414,8 +420,8 @@ namespace NetBoard.Controllers.Generic
 		/// <summary>
 		/// Default action on accessing the board. Returns the full name of the board.
 		/// </summary>
-		public virtual string GetBoardName() {
-			return BoardName;
+		public virtual string GetBoardName(string board) {
+			return _configuration[$"Boards:{board}"] ?? "No such board!";
 		}
 
 		#endregion Tools
@@ -426,16 +432,17 @@ namespace NetBoard.Controllers.Generic
 		// DELETE: Entity/post/admin/42
 		[HttpDelete("post/admin/{id}")]
 		[LoopbackOnly]
-		public virtual async Task<ActionResult<Board>> AuthorizedDeleteEntity(int id) {
-			var entity = await _context.Set<Board>().FindAsync(id);
+		public virtual async Task<ActionResult<Post>> AuthorizedDeleteEntity(int id) {
+			var board = RouteData.Values["board"].ToString();
+			var entity = await boardProvider.GetPostById(id, board);
 			if (entity == null) {
 				return BadRequest("Post with this ID was not found.");
 			}
 
-			_context.Set<Board>().Remove(entity);
 			if (entity.Thread == null) {
-				var responses = await _context.Set<Board>().Where(x => x.Thread == id).ToArrayAsync();
-				_context.Set<Board>().RemoveRange(responses);
+				await boardProvider.RemoveThread(id, board);
+			} else {
+				await boardProvider.RemovePost(id, board);
 			}
 
 			await _context.SaveChangesAsync();
@@ -449,57 +456,27 @@ namespace NetBoard.Controllers.Generic
 		[HttpPost("admin/thread")]
 		[LoopbackOnly]
 		[Authorize]
-		public virtual async Task<ActionResult<Board>> AdministrativeCreateThread([Bind("Archived,Content,Name,Options,Sticky,Thread")] Board entity) {
+		public virtual async Task<ActionResult<Post>> AdministrativeCreateThread([Bind("Archived,Content,Name,Options,Sticky,Thread")] Post entity) {
 			var adminLevel = PosterExtensions.GetPosterLevel(HttpContext.User);
-			return await AdministrativePost(entity, adminLevel);
+			return await AdministrativePost(entity, adminLevel, RouteData.Values["board"].ToString());
 		}
 
 		// POST: Entity/admin/response/42
 		[HttpPost("admin/response/{threadId}")]
 		[LoopbackOnly]
 		[Authorize]
-		public virtual async Task<ActionResult<Board>> AdministrativeCreateResponse([Bind("Archived,Content,Name,Options,Sticky,Thread")] Board entity, int threadId) {
+		public virtual async Task<ActionResult<Post>> AdministrativeCreateResponse([Bind("Archived,Content,Name,Options,Sticky,Thread")] Post entity, int threadId) {
 			var adminLevel = PosterExtensions.GetPosterLevel(HttpContext.User);
-			return await AdministrativePost(entity, adminLevel, threadId);
+			return await AdministrativePost(entity, adminLevel, RouteData.Values["board"].ToString(), threadId);
 		}
 
-		private async Task<ActionResult<Board>> AdministrativePost(Board entity, AdministrativeLevel posterLevel, int threadId = 0) {
-			var userIp = HttpContext.Connection.RemoteIpAddress;
+		private async Task<ActionResult<Post>> AdministrativePost(Post post, AdministrativeLevel posterLevel, string board, int threadId = 0) {
+			post.Password = null;
+			post.PosterIP = "localhost";
+			post.PosterLevel = posterLevel;
+			post.PostedOn = DateTime.UtcNow;
 
-			entity.Password = null;
-			entity.PosterIP = "localhost";
-			entity.PosterLevel = posterLevel;
-			entity.PostedOn = DateTime.UtcNow;
-
-			// response posting mode
-			if (threadId != 0) {
-				if (!await ThreadExists(threadId, userIp)) {
-					return BadRequest($"There is no thread with ID {threadId}.");
-				}
-
-				entity.Thread = threadId;
-				var topic = _context.Set<Board>().Find(threadId);
-				if (entity.Options == null || entity.Options.ToUpper() != "SAGE") {
-					topic.LastPostDate = DateTime.UtcNow;
-				}
-				_context.Set<Board>().Add(entity);
-
-			// topic posting mode
-			} else {
-				entity.Thread = null;
-				entity.LastPostDate = DateTime.UtcNow;
-				_context.Set<Board>().Add(entity);
-			}
-
-			await _context.SaveChangesAsync();
-			_logger.LogInformation(
-				string.Format("An administrative post /{0}/{1} was made. It's a {2}.",
-								typeof(Board).Name.ToLower(),
-								entity.Id,
-								entity.Thread == null ? "new thread" : "response to /" + typeof(Board).Name.ToLower() + "/" + entity.Thread
-				)
-			);
-			return Created("post", new Dictionary<string, int> { { "id", entity.Id } });
+			return await Post(post, board, threadId, true);
 		}
 		#endregion POST
 

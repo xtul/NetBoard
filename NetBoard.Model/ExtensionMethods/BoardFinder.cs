@@ -13,7 +13,7 @@ namespace NetBoard.Model.ExtensionMethods {
 	public static class BoardFinder {
 		public static IEnumerable<Type> GetBoards() {
 			var assembly = Assembly.GetExecutingAssembly().GetName().Name;
-			return Assembly.Load(assembly).GetTypes().Where(x => x.BaseType == typeof(PostStructure));
+			return Assembly.Load(assembly).GetTypes().Where(x => x.BaseType == typeof(Post));
 		}
 
 		public static List<string> GetBoardsAsStrings() {
@@ -55,7 +55,7 @@ namespace NetBoard.Model.ExtensionMethods {
 
 		public static Type GetBoard(string board) {
 			var assembly = Assembly.GetExecutingAssembly().GetName().Name;
-			return Assembly.Load(assembly).GetTypes().Where(x => x.BaseType == typeof(PostStructure)).First(x => x.Name.ToUpper() == board.ToUpper());
+			return Assembly.Load(assembly).GetTypes().Where(x => x.BaseType == typeof(Post)).First(x => x.Name.ToUpper() == board.ToUpper());
 		}
 
 		public static bool BoardExists(string board) {

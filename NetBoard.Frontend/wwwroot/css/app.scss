@@ -1,11 +1,84 @@
 ﻿@import "card.scss";
 @import "image.scss";
+@import "post.scss";
+
+html, body {
+	margin: 0;
+	padding: 0;
+}
+
+html {
+	height: 100%;
+}
 
 body {
+	min-height: 100%;
 	padding-left: 10px;
 	padding-right: 10px;
+	overflow-x: hidden;
 }
 
 #app {
 	min-height:99vh;
+}
+
+.board-list, .board-list-bottom {
+	width: 100%;
+}
+
+.board-list-top {
+	position: absolute;
+	top: 15px;
+}
+
+.board-list-bottom {
+	position: absolute;
+	margin-top:60px;
+}
+
+.board-list-link {
+	display: inline-block;
+	position: relative;
+	z-index: 1;
+	padding-top: 1em;
+	padding-bottom: 1em;
+	margin-top: -1em;
+	margin-bottom: -1em;
+}
+
+.margin-15px {
+	margin: 15px;
+}
+
+.margin-bottom-15px {
+	margin-bottom:15px;
+}
+
+margin-left-10px {
+	margin-left:10px;
+}
+
+.mud-link.mud-link-underline-hover:hover {
+	color: var(--mud-palette-error) !important;
+	text-decoration: none !important;
+	cursor: pointer;
+}
+
+hr {
+	margin: auto;
+	height: 1px;
+	background-color: var(--mud-palette-primary-lighten);
+	border: none;
+}
+
+hr.w80 {
+	width:80%;
+}
+
+hr.w60 {
+	width:60%;
+}
+
+hr.w40 {
+	width: 40%;
 }

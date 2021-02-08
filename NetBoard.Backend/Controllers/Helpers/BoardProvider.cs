@@ -1,47 +1,54 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using NetBoard.Model.Data;
 using NetBoard.Model.ExtensionMethods;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 
 namespace NetBoard.Controllers.Helpers {
-	
+
 	/// <summary>
 	/// Class providing commonly used post/thread-retrieving methods.
 	/// </summary>
-	public class BoardProvider<Board> where Board : PostStructure {
+	public class BoardProvider {
 		private readonly ApplicationDbContext _context;
+		private readonly IConfiguration _queries;
 
-		public BoardProvider(ApplicationDbContext context) {
+		public BoardProvider(ApplicationDbContext context, IConfiguration config) {
 			_context = context;
+
+			var databaseType = config["DatabaseType"];
+			_queries = new ConfigurationBuilder().SetBasePath(Directory.GetCurrentDirectory()).AddJsonFile($"queries.{databaseType}.json", false, true).Build();
 		}
 
 		/// <summary>
 		/// Returns total amount of threads on this board.
 		/// </summary>
-		public int GetTotalThreadCount() {
-			return _context.Set<Board>().AsNoTracking().Where(x => x.Thread == null).Count();
+		public int GetTotalThreadCount(string board) {
+			return _context.Posts.FromSqlRaw(_queries["GetAllThreadsMin"].Replace("{BOARD}", board)).AsNoTracking().Count();
 		}
 
 		/// <summary>
 		/// Returns the oldest thread on this board.
 		/// </summary>
-		public async Task<Board> GetOldestThread() {
-			return await _context.Set<Board>()
-							.Where(x => x.Archived == false)
-							.OrderByDescending(x => x.LastPostDate)
-							.Take(1).FirstOrDefaultAsync();
+		public async Task<Post> GetOldestThread(string board) {
+			return await _context.Posts.FromSqlRaw(_queries["GetOldestThread"].Replace("{BOARD}", board)).AsNoTracking().FirstOrDefaultAsync();
 		}
 
 		/// <summary>
 		/// Returns a single post.
 		/// </summary>
-		public async Task<Board> GetPostById(int id) {
-			return await _context.Set<Board>()
-							.FindAsync(id);
+		public async Task<Post> GetPostById(int id, string board) {
+			return await _context.Posts.FromSqlRaw(_queries["GetPostById"].Replace("{BOARD}", board), id).AsNoTracking().FirstOrDefaultAsync();
+		}
+
+		public async Task<Post[]> GetArchivedThreads() {
+			return await _context.Posts.FromSqlRaw(_queries["GetArchivedThreads"]).ToArrayAsync();
 		}
 
 		/// <summary>
@@ -51,7 +58,7 @@ namespace NetBoard.Controllers.Helpers {
 		/// <param name="maxResponses">Max responses a thread on this board can take (used to calculate being past limits)</param>
 		/// <param name="maxImages">Max images this a thread on this board can take (used to calculate being past limits)</param>
 		/// <returns></returns>
-		public Dictionary<string, int> GetThreadInfo(List<Board> posts, int maxResponses, int maxImages) {
+		public Dictionary<string, int> GetThreadInfo(List<Post> posts, int maxResponses, int maxImages) {
 			var imageCount = posts.Where(x => x.Image != null).Count();
 			var responseCount = posts.Count - 1; // exclude OP
 
@@ -73,38 +80,43 @@ namespace NetBoard.Controllers.Helpers {
 		/// <summary>
 		/// Returns a list of threads.
 		/// </summary>
-		public async Task<List<Board>> GetThreadList() {
-			return await _context.Set<Board>()
-								.AsNoTracking()
-								.OrderByDescending(x => x.Sticky).ThenByDescending(x => x.LastPostDate)
-								.Where(x => x.Thread == null)
-								.ToListAsync();
+		public async Task<List<Post>> GetThreadList(string board) {
+			return await _context.Posts.FromSqlRaw(_queries["GetThreadList"].Replace("{BOARD}", board)).ToListAsync();
 		}
 
 		/// <summary>
 		/// Gets a thread by ID.
 		/// </summary>
-		public async Task<Board> GetThread(int id) {
-			return await _context.Set<Board>().FindAsync(id);
+		public async Task<Post> GetThread(int id, string board) {
+			var post = await GetPostById(id, board);
+
+			if (post.Thread is null) {
+				return post;
+			} else {
+				return null;
+			}
 		}
 
-		public async Task<List<Board>> GetThreadAndResponses(int id, int responseCount) {
-			var noResponseLimit = responseCount < 1;
-			List<Board> result;
+		/// <summary>
+		/// Gets thread and it's last responses. Also see <see cref="GetLastResponses(int, int)"/>.
+		/// </summary>
+		/// <param name="threadId">Thread ID.</param>
+		/// <param name="responseCount">How many responses to fetch? "0" will fetch all.</param>
+		/// <param name="removeOp">Should OP be removed from fetching? Only used when <paramref name="responseCount"/> is above 0.</param>
+		/// <returns></returns>
+		public async Task<List<Post>> GetThreadAndResponses(int threadId, int responseCount, string board, bool removeOp = false) {
+			var responseLimit = responseCount > 0;			
+			var result = await _context.Posts.FromSqlRaw(_queries["GetThreadAndResponses"].Replace("{BOARD}", board), threadId).AsNoTracking().ToListAsync();
+			result = result.OrderBy(x => x.Id).ToList();
 
-			if (noResponseLimit) {
-				result = await _context.Set<Board>()
-									.AsNoTracking()
-									.Where(x => x.Id == id || x.Thread == id)
-									.OrderBy(x => x.Id)
-									.ToListAsync();
-			} else {
-				result = await _context.Set<Board>()
-									.AsNoTracking()
-									.Where(x => x.Id == id)
-									.Where(x => x.Thread == id)
-									.OrderByDescending(x => x.Id)
-									.ToListAsync();
+			if (responseLimit) {
+				if (removeOp) {
+					result.RemoveAt(0);
+					result.RemoveRange(0, Math.Clamp(result.Count - 3, 0, result.Count)); 
+				} else {
+					// if we want to keep OP, need to remove 1 from count
+					result.RemoveRange(1, Math.Clamp(result.Count - 4, 0, result.Count)); 
+				}
 			}
 
 			return result;
@@ -113,39 +125,15 @@ namespace NetBoard.Controllers.Helpers {
 		/// <summary>
 		/// Gets thread's last responses.
 		/// </summary>
-		/// <param name="count">Response count. If 0 or less, returns all.</param>
+		/// <param name="responseCount">Response count. If 0 or less, returns all.</param>
 		/// <param name="threadId">Thread ID.</param>
 		/// <returns>A list of last responses.</returns>
-		public async Task<List<Board>> GetLastResponses(int count, int threadId) {
-			var noResponseLimit = count < 1;
-			List<Board> result;
-
-			if (noResponseLimit) {
-				result = await _context.Set<Board>()
-									.AsNoTracking()
-									.Where(x => x.Thread == threadId)
-									.OrderByDescending(x => x.Id)
-									.ToListAsync();
-			} else {
-				result = await _context.Set<Board>()
-									.AsNoTracking()
-									.Where(x => x.Thread == threadId)
-									.OrderByDescending(x => x.Id)
-									.Take(count)
-									.ToListAsync();
-			}
-
-			return result;
+		public async Task<List<Post>> GetLastResponses(int responseCount, int threadId, string board) {
+			return await GetThreadAndResponses(threadId, responseCount, board, true);
 		}
 
-		public async Task<List<Board>> GetResponsesPastId(int threadId, int lastId) {
-			var result = await _context.Set<Board>()
-									.AsNoTracking()
-									.Where(x => x.Thread == threadId && x.Id > lastId)
-									.OrderBy(x => x.PostedOn)
-									.ToListAsync();
-
-			return result;
+		public async Task<List<Post>> GetResponsesPastId(int threadId, int lastId, string board) {
+			return await _context.Posts.FromSqlRaw(_queries["GetResponsesPastId"].Replace("{BOARD}", board), threadId, lastId).AsNoTracking().ToListAsync();
 		}
 
 		/// <summary>
@@ -156,32 +144,23 @@ namespace NetBoard.Controllers.Helpers {
 		/// <param name="threadsPerPage">How many threads a page can hold?</param>
 		/// <param name="isArchive">Should only look for archived threads?</param>
 		/// <returns></returns>
-		public async Task<List<Board>> GetThreadPage(int page, int totalThreadCount, int threadsPerPage, bool isArchive) {
-			List<Board> threads;
-			var tableName = _context.GetSchemaAndTable<Board>();
+		public async Task<List<Post>> GetThreadPage(int page, int totalThreadCount, int threadsPerPage, bool isArchive, string board) {
+			List<Post> threads;
+
 			// if results need to be paginated and requested page isn't == 1...
 			if (totalThreadCount > threadsPerPage && page != 1) {
-				// EF Core in this version seems to shit the bed when doing paginations (or it's Postgres support, at least)
-				threads = await _context.Set<Board>()
-											.FromSqlRaw(@$"
-												SELECT * FROM {tableName} AS t
-												WHERE (t.thread IS NULL) {(isArchive ? "AND (t.archived = true) OR (t.archived = true and (t.sticky = false))" : "AND (t.archived = false) OR (t.archived = true and (t.sticky = true))")}
-												ORDER BY t.sticky DESC, t.last_post_date DESC
-												LIMIT {threadsPerPage} OFFSET {(threadsPerPage * page) - threadsPerPage}
-												")
-											.ToListAsync();
-
+				if (isArchive) {
+					threads = await _context.Posts.FromSqlRaw(_queries["GetThreadPage_Archived"].Replace("{BOARD}", board), threadsPerPage, (threadsPerPage * page) - threadsPerPage).ToListAsync();
+				} else {
+					threads = await _context.Posts.FromSqlRaw(_queries["GetThreadPage"].Replace("{BOARD}", board), threadsPerPage, (threadsPerPage * page) - threadsPerPage).ToListAsync();
+				}
 			// otherwise just show first page, don't paginate
 			} else {
-				threads = await _context.Set<Board>()
-										.FromSqlRaw(@$"
-											SELECT * FROM {tableName} AS t
-											WHERE (t.thread IS NULL) {(isArchive ? "AND (t.archived = true) OR (t.archived = true and (t.sticky = false))" : "AND (t.archived = false) OR (t.archived = true and (t.sticky = true))")}
-											ORDER BY t.sticky DESC, t.last_post_date DESC
-											LIMIT {threadsPerPage}
-											")
-										.ToListAsync();
-
+				if (isArchive) {
+					threads = await _context.Posts.FromSqlRaw(_queries["GetThreadPage_OnlyFirstPage_Archived"].Replace("{BOARD}", board), threadsPerPage, (threadsPerPage * page) - threadsPerPage).ToListAsync();
+				} else {
+					threads = await _context.Posts.FromSqlRaw(_queries["GetThreadPage_OnlyFirstPage"].Replace("{BOARD}", board), threadsPerPage, (threadsPerPage * page) - threadsPerPage).ToListAsync();
+				}
 			}
 			return threads;
 		}
@@ -191,7 +170,7 @@ namespace NetBoard.Controllers.Helpers {
 		/// </summary>
 		/// <param name="thread">Post list.</param>
 		/// <param name="userIp">Connecting user IP.</param>
-		public void MakeThreadDTO(List<Board> thread, IPAddress userIp) {
+		public void MakeThreadDTO(List<Post> thread, IPAddress userIp) {
 			for (int i = 0; i < thread.Count; i++) {
 				if (i == 0) {
 					thread.ElementAt(i).AsDTO(userIp, null, true);
@@ -201,12 +180,45 @@ namespace NetBoard.Controllers.Helpers {
 			}
 		}
 
-		public void RemoveThread(Board thread) {
-			_context.Set<Board>().Remove(thread);
+		/// <summary>
+		/// Removes thread and all it's responses.
+		/// </summary>
+		public async Task RemoveThread(int threadId, string board) {
+			var thread = await GetThreadAndResponses(threadId, 0, board);
+
+			if (thread is null) {
+				return;
+			}
+
+			_context.Posts.FromSqlRaw(_queries["RemoveThread"].Replace("{BOARD}", board), threadId);
+
+			// we need to get rid of images as well
+			foreach (var post in thread) {
+				ImageManipulation.DeleteImage(board, post.Id);
+			}
+
 		}
 
-		public void RemoveThreads(Board[] threads) {
-			_context.Set<Board>().RemoveRange(threads);
+		/// <summary>
+		/// Removes threads and all their responses.
+		/// </summary>
+		public async Task RemoveThreads(int[] threads, string board) {
+			// not at all efficient, but you rarely need to purge an entire board
+			// definitely could use an entirely new query though
+			foreach (var threadId in threads) {
+				await RemoveThread(threadId, board);
+			}
+		}
+
+		/// <summary>
+		/// Removes a specific post. It can't delete threads, use <see cref="RemoveThread(int)"/> instead.
+		/// </summary>
+		public async Task RemovePost(int postId, string board) {
+			var post = await GetPostById(postId, board);
+
+			if (post is not null && post.Thread is not null) {
+				_context.Posts.FromSqlRaw(_queries["RemovePost"], postId);
+			}
 		}
 	}
 }

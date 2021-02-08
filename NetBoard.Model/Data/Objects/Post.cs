@@ -5,12 +5,14 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.IO;
 using System.Net;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.Json.Serialization;
 
 namespace NetBoard.Model.Data {
-	public class PostStructure {
+	public class Post {
 		[Key]
 		public int Id { get; set; }
 
@@ -25,9 +27,6 @@ namespace NetBoard.Model.Data {
 				_image = value;
 			}
 		}
-		[StringLength(5)]
-		[NotMapped]
-		public string ImageExt { get; set; }
 		[StringLength(4000)]
 		public string Content { get; set; }
 
@@ -80,7 +79,7 @@ namespace NetBoard.Model.Data {
 		public string PosterIP { get; set; }
 		public bool? ShadowBanned { get; set; }
 		[NotMapped]
-		public List<PostStructure> Responses { get; set; }
+		public List<Post> Responses { get; set; }
 		[NotMapped]
 		public int? ResponseCount { get; set; }
 		[NotMapped]
@@ -98,6 +97,8 @@ namespace NetBoard.Model.Data {
 		public bool You { get; set; } 
 		[NotMapped]
 		public string CaptchaCode { get; set; }
+		[NotMapped]
+		public string FileDetails { get; set; }
 		public bool? PastLimits { get; set; }
 
 
@@ -184,6 +185,47 @@ namespace NetBoard.Model.Data {
 		#endregion Shadowbanned
 
 		#region Utilities
+
+		public static string FormatSize(long bytes) {
+			string[] suffixes = { "Bytes", "KB", "MB"};
+			int counter = 0;
+			decimal number = bytes;
+			while (Math.Round(number / 1024) >= 1) {
+				number /= 1024;
+				counter++;
+			}
+			return string.Format("{0:n1}{1}", number, suffixes[counter]);
+		}
+
+		/// <summary>
+		/// Returns file info string.
+		/// </summary>
+		public string FileInfo() {
+			if (Image is null) {
+				return "";
+			}
+			// jesus christ working with paths is such a pain
+			var assemblyPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+			if (assemblyPath is null) {
+				return "";
+			}
+
+			var filePath = Path.Combine(assemblyPath, "wwwroot" + Image).Replace("file:///", "");
+			var fileSize = FormatSize(new FileInfo(filePath).Length);
+
+			int height;
+			int width;
+
+			using (var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read)) {
+				using (var image = System.Drawing.Image.FromStream(fileStream, false, false)) {
+					height = image.Height;
+					width = image.Width;
+				}
+			}
+
+			return $"({fileSize}, {width}x{height})";
+		}
+
 		/// <summary>
 		/// Determines whether this post was made by connecting IP.
 		/// </summary>
@@ -202,7 +244,11 @@ namespace NetBoard.Model.Data {
 			You = IsYou(clientIp);
 			PosterIP = null;
 			ShadowBanned = null;
-			if (Image == null) SpoilerImage = null;
+			if (Image is not null) {
+				FileDetails = FileInfo();
+			} else {
+				SpoilerImage = null;
+			}
 
 			if (!isOP) {
 				Subject = null; // responses don't have subjects, silly
@@ -222,10 +268,10 @@ namespace NetBoard.Model.Data {
 		}
 
 		/// <summary>
-		/// Creates a new <see cref="PostStructure"/> based on this one in a version that can be used in data transfer (eg. API response).
+		/// Creates a new <see cref="Post"/> based on this one in a version that can be used in data transfer (eg. API response).
 		/// </summary>
-		/// <returns>A new <see cref="PostStructure"/> as DTO.</returns>
-		public PostStructure CloneAsDTO(int contentPreviewLength, string contentCutoffText, IPAddress posterIp, int? threadId = null) {
+		/// <returns>A new <see cref="Post"/> as DTO.</returns>
+		public Post CloneAsDTO(int contentPreviewLength, string contentCutoffText, IPAddress posterIp, int? threadId = null) {
 			var clone = this;
 			clone.AsDTO(contentPreviewLength, contentCutoffText, posterIp, threadId);
 

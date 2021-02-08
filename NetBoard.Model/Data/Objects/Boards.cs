@@ -1,10 +1,10 @@
 ﻿namespace NetBoard.Model.Data {
-	public class G : PostStructure {
+	public class G : Post {
 	}
 
-	public class Meta : PostStructure {
+	public class Meta : Post {
 	}
 
-	public class Diy : PostStructure {
+	public class Diy : Post {
 	}
 }

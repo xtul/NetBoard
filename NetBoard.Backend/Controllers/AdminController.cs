@@ -48,7 +48,7 @@ namespace NetBoard.Controllers {
 
 		#region POST
 		public async Task<IActionResult> ArchivePostAsync([FromQuery] string board, [FromRoute] int id, [FromQuery] string unarchive = "false") {
-			var post = (PostStructure)await _context.FindAsync(BoardFinder.GetBoard(board), id);
+			var post = (Post)await _context.FindAsync(BoardFinder.GetBoard(board), id);
 			if (post == null) return BadRequest();
 			if (unarchive == "true") {
 				post.Archived = false;
@@ -60,7 +60,7 @@ namespace NetBoard.Controllers {
 		}
 
 		public async Task<IActionResult> DeletePostAsync([FromQuery] string board, [FromRoute] int id) {
-			var post = (PostStructure)await _context.FindAsync(BoardFinder.GetBoard(board), id);
+			var post = (Post)await _context.FindAsync(BoardFinder.GetBoard(board), id);
 			if (post == null) return BadRequest();
 
 			// I tried to avoid making server-only API endpoints
@@ -95,14 +95,14 @@ namespace NetBoard.Controllers {
 		}
 
 		public async Task<IActionResult> DeletePictureAsync([FromQuery] string board, [FromRoute] int id) {
-			var post = await _context.FindAsync(BoardFinder.GetBoard(board), id) as PostStructure;
+			var post = await _context.FindAsync(BoardFinder.GetBoard(board), id) as Post;
 			post.Image = null;
 			await _context.SaveChangesAsync();
 			return Redirect(Request.Headers["Referer"].ToString());
 		}
 
 		public async Task<IActionResult> StickyPostAsync([FromQuery] string board, [FromRoute] int id, [FromQuery] string unstick = "false") {
-			var post = await _context.FindAsync(BoardFinder.GetBoard(board), id) as PostStructure;
+			var post = await _context.FindAsync(BoardFinder.GetBoard(board), id) as Post;
 			if (unstick == "true") {
 				post.Sticky = false;
 			} else {

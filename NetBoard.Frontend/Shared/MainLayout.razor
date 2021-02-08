@@ -3,19 +3,22 @@
 <MudThemeProvider Theme="NetChan" />
 
 <MudLayout>
-	<BoardListBar Boards="@Boards"/>
 	<MudMainContent>
 		@Body
 	</MudMainContent>
-	<BoardListBar Boards="@Boards"/>
 </MudLayout>
 
 @code {
-	MudTheme NetChan = new MudTheme() {
+
+	// Frontpage layout.
+
+	public static MudTheme NetChan = new MudTheme() {
 		Palette = new Palette() {
-			Primary = Colors.Blue.Accent1,
-			Secondary = Colors.Blue.Lighten3,
-			Background = Colors.Blue.Lighten5
+			Primary = "#00adef",
+			Secondary = "#eefaff",
+			Background = Colors.Blue.Lighten5,
+			Error = "#d00",
+			Success = "#789922"
 		},
 
 		LayoutProperties = new LayoutProperties() {
@@ -23,19 +26,4 @@
 			AppbarMinHeight = "20px"
 		}
 	};
-
-	public string[] Boards { get; set; }
-
-	protected override async Task OnInitializedAsync() {
-		var url = config.GetSection("Api")["Url"];
-		IFlurlResponse response;
-		try {
-			response = await $"{url}/api/frontpage/boards".GetAsync();
-		} catch {
-			return;
-		}
-
-		var boards = await response.ResponseMessage.Content.ReadFromJsonAsync<Dictionary<string, string>>();
-		Boards = boards.Keys.ToArray();
-	}
 }

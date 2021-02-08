@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NetBoard.Model.Data;
@@ -12,22 +13,25 @@ using System.Threading.Tasks;
 using static NetBoard.Controllers.Helpers.ImageManipulation;
 
 namespace NetBoard.Controllers.Helpers {
-	public class PostCreator<Board> where Board : PostStructure {
+	public class PostCreator {
 		private readonly ApplicationDbContext _context;
-		private readonly BoardProvider<Board> _boardProvider;
-		private readonly ILogger<Board> _logger;
+		private readonly BoardProvider _boardProvider;
+		private readonly ILogger<Post> _logger;
+		private readonly IConfiguration _queries;
 
-		public PostCreator(ApplicationDbContext context, BoardProvider<Board> boardProvider, ILogger<Board> logger) {
+		public PostCreator(ApplicationDbContext context, BoardProvider boardProvider, ILogger<Post> logger, IConfiguration config) {
 			_logger = logger;
 			_context = context;
 			_boardProvider = boardProvider;
+			var databaseType = config["DatabaseType"];
+			_queries = new ConfigurationBuilder().SetBasePath(Directory.GetCurrentDirectory()).AddJsonFile($"queries.{databaseType}.json", false, true).Build();
 		}
 
 		/// <summary>
 		/// Prepares the post for storage.
 		/// </summary>
-		private static void SetupPost(ref Board post, IPAddress userIp, IConfiguration config) {
-			if (ShadowBans<Board>.IsIpShadowbanned(userIp, config)) {
+		private static void SetupPost(ref Post post, IPAddress userIp, IConfiguration config) {
+			if (ShadowBans.IsIpShadowbanned(userIp, config)) {
 				post.ShadowBanned = true;
 			}
 
@@ -39,7 +43,7 @@ namespace NetBoard.Controllers.Helpers {
 			post.PostedOn = DateTime.UtcNow;
 		}
 
-		private void CreateResponse(Board post, Board thread) {
+		private void CreateResponse(Post post, Post thread, string board) {
 			post.Thread = thread.Id;
 			post.Sticky = false;
 			post.Content = post.Content.Replace("\r", "");
@@ -52,7 +56,7 @@ namespace NetBoard.Controllers.Helpers {
 			if (isSaged) {
 				_context.Sages.Add(new Sage {
 					TopicId = thread.Id,
-					Board = typeof(Board).Name
+					Board = board
 				});
 			}
 
@@ -62,17 +66,27 @@ namespace NetBoard.Controllers.Helpers {
 				thread.LastPostDate = DateTime.UtcNow;
 			}
 
-			_context.Set<Board>().Add(post);
+			_context.Posts.FromSqlRaw(_queries["CreatePost"], 
+				board,
+				post.Image, post.Content, post.Name, post.Password, post.PostedOn, post.SpoilerImage, post.Subject,
+				post.Archived, post.PosterLevel, post.Thread, post.Sticky, post.LastPostDate, post.PosterIP, 
+				post.PastLimits, post.ShadowBanned
+			);
 		}
 
-		private void CreateThread(Board post) {
+		private void CreateThread(Post post, string board) {
 			post.Thread = null;
 			post.LastPostDate = DateTime.UtcNow;
 
-			_context.Set<Board>().Add(post);
+			_context.Posts.FromSqlRaw(_queries["CreatePost"],
+				board,
+				post.Image, post.Content, post.Name, post.Password, post.PostedOn, post.SpoilerImage, post.Subject,
+				post.Archived, post.PosterLevel, post.Thread, post.Sticky, post.LastPostDate, post.PosterIP,
+				post.PastLimits, post.ShadowBanned
+			);
 		}
 
-		private void CheckIfPastLimits(ref List<Board> thread, int maxResponses, int maxImages) {
+		private void CheckIfPastLimits(ref List<Post> thread, int maxResponses, int maxImages) {
 			var threadInfo = _boardProvider.GetThreadInfo(thread, maxResponses, maxImages);
 
 			var responseCountExists = threadInfo.TryGetValue("responseCount", out int responseCount);
@@ -89,16 +103,15 @@ namespace NetBoard.Controllers.Helpers {
 		/// <summary>
 		/// Archives the oldest thread. Don't forget to save changes in DB.
 		/// </summary>
-		/// <param name="threadsAvailable">Amount of threads currently available.</param>
-		private async Task ArchiveOldThreadAsync(int maxThreads, TimeSpan archivedLifetime) {
-			var threadsAvailable = _boardProvider.GetTotalThreadCount();
+		private async Task ArchiveOldThreadAsync(int maxThreads, TimeSpan archivedLifetime, string board) {
+			var threadsAvailable = _boardProvider.GetTotalThreadCount(board);
 
 			if (threadsAvailable >= maxThreads) {
-				var oldestThread = await _boardProvider.GetOldestThread();
+				var oldestThread = await _boardProvider.GetOldestThread(board);
 				oldestThread.Archived = true;
 				_context.MarkedForDeletion.Add(new MarkedForDeletion
 				{
-					Board = typeof(Board).Name,
+					Board = board,
 					PostId = oldestThread.Id,
 					UtcDeletedOn = DateTime.UtcNow + archivedLifetime
 				});
@@ -108,17 +121,17 @@ namespace NetBoard.Controllers.Helpers {
 		/// <summary>
 		/// Creates a new post 
 		/// </summary>
-		/// <param name="thread">If set to 0 or below, a new thread is created.</param>
-		public async Task Create(Board post, IPAddress userIp, IConfiguration config, List<Board> thread, int maxResponses, int maxImages, int maxThreads, TimeSpan archivedLifetime) {
+		/// <param name="thread">If null, a new thread is created.</param>
+		public async Task Create(Post post, IPAddress userIp, IConfiguration config, List<Post> thread, int maxResponses, int maxImages, int maxThreads, TimeSpan archivedLifetime, string board) {
 			SetupPost(ref post, userIp, config);
-			var op = await _boardProvider.GetPostById(thread.First().Id);
+			var op = await _boardProvider.GetPostById(thread.First().Id, board);
 
 			if (thread is null) {
-				CreateThread(post);
-				await ArchiveOldThreadAsync(maxThreads, archivedLifetime);
+				CreateThread(post, board);
+				await ArchiveOldThreadAsync(maxThreads, archivedLifetime, board);
 			} else {
 				op.LastPostDate = DateTime.UtcNow;
-				CreateResponse(post, thread.First());
+				CreateResponse(post, thread.First(), board);
 				CheckIfPastLimits(ref thread, maxResponses, maxImages);
 			}
 
@@ -126,15 +139,15 @@ namespace NetBoard.Controllers.Helpers {
 			await _context.SaveChangesAsync();
 			_logger.LogInformation(
 				string.Format("A post /{0}/{1} was made. It's a {2}.",
-								typeof(Board).Name.ToLower(),
+								board,
 								post.Id,
-								post.Thread == null ? "new thread" : "response to /" + typeof(Board).Name.ToLower() + "/thread/" + post.Thread
+								post.Thread == null ? "new thread" : "response to /" + board + "/thread/" + post.Thread
 				)
 			);
 
 			// if image token was provided try to handle it (done last because we need post ID)
 			if (post.Image != null) {
-				post = HandleImagePosting(post, op.Id == 0 ? ThumbType.thread : ThumbType.response);
+				post = HandleImagePosting(post, op.Id == 0 ? ThumbType.thread : ThumbType.response, board);
 				if (post == null) {
 					_logger.LogInformation("However, image saving has failed.");
 				}
@@ -151,7 +164,7 @@ namespace NetBoard.Controllers.Helpers {
 		/// </summary>
 		/// <param name="entity">Entity to take the token from.</param>
 		/// <returns>Modified entity or null if couldn't convert image.</returns>
-		private Board HandleImagePosting(Board entity, ThumbType mode) {
+		private Post HandleImagePosting(Post entity, ThumbType mode, string board) {
 			var errorString = "Tried to assign image token to a post";
 			var tempDir = Path.Combine(Path.GetDirectoryName(typeof(Startup).Assembly.Location), "tempImages");
 			var wwwroot = Path.Combine(Path.GetDirectoryName(typeof(Startup).Assembly.Location), "wwwroot");
@@ -171,7 +184,7 @@ namespace NetBoard.Controllers.Helpers {
 			}
 
 			// move to a persistent directory
-			var newFilePath = Path.Combine(wwwroot, "img", typeof(Board).Name.ToLower(), entity.Id.ToString());
+			var newFilePath = Path.Combine(wwwroot, "img", board, entity.Id.ToString());
 			if (!Directory.Exists(newFilePath)) {
 				Directory.CreateDirectory(newFilePath);
 			}

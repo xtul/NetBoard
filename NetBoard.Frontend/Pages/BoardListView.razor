@@ -1,0 +1,73 @@
+﻿@page "/{Board}/list"
+@layout BoardLayout
+@using Newtonsoft.Json;
+@using Newtonsoft.Json.Linq;
+
+@if (NoSuchBoard) {
+	<MudText>This board does not exist.</MudText>
+} else {
+	<MudText>/@Board/ - @BoardLongName</MudText>
+
+	if (Threads is not null) {
+		foreach (var thread in Threads) {
+			<div class="post-card-op">
+				<MudText>@thread.Id: @thread.Content</MudText>
+			</div>
+			if (thread.Responses is not null) {
+				foreach (var response in thread.Responses) {
+					<div class="post-card">
+						<MudText>@response.Id: @response.Content</MudText>
+					</div>
+				}
+			}
+		}
+	}
+}
+
+@code {
+	public bool NoSuchBoard { get; set; }
+	[Parameter] public string Board { get; set; }
+	[Parameter] public string BoardLongName { get; set; }
+	public List<Post> Threads { get; set; }
+
+	protected override async Task OnInitializedAsync() {
+		var response = await GetApiResponse($"/api/{Board}/list");
+		if (response is null) {
+			NoSuchBoard = true;
+			return;
+		}
+
+		var result = await response.ResponseMessage.Content.ReadAsStringAsync();
+		var board = JsonConvert.DeserializeObject<BoardResponse>(result);
+
+		var obj = JObject.Parse(result);
+
+		Threads = board.Threads;
+		BoardLongName = obj["pageData"]["boardLong"].ToString();
+	}
+
+	private async Task<IFlurlResponse> GetApiResponse(string endpoint) {
+		var url = config.GetSection("Api")["Url"];
+		IFlurlResponse response;
+		try {
+			response = await $"{url}{endpoint}".GetAsync();
+		} catch {
+			return null;
+		}
+
+		return response;
+	}
+
+	private List<Dictionary<string, object>> GetThreadList(JObject obj) {
+		var threadList = new List<Dictionary<string, object>>();
+		foreach (var thread in obj["threads"]) {
+			if (thread["responses"] is not null) {
+				thread["responses"].ToObject<Dictionary<string, object>[]>();
+			}
+			threadList.Add(thread.ToObject<Dictionary<string, object>>());
+
+		}
+
+		return threadList;
+	}
+}

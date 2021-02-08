@@ -1,7 +1,7 @@
 ﻿@import "colors.scss";
 
 .primary-card-header {
-	background-color: $primary;
-	padding:8px;
-	padding-left:16px;
+	background-color: var(--mud-palette-primary);
+	padding: 8px;
+	padding-left: 16px;
 }

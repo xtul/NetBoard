@@ -1,5 +1,5 @@
 ﻿.primary-card-header {
-  background-color: #45a3f3;
+  background-color: var(--mud-palette-primary);
   padding: 8px;
   padding-left: 16px; }
 
@@ -9,9 +9,111 @@
   margin-bottom: 40px;
   height: 150px; }
 
+.post-card-op, .post-card {
+  padding: 10px;
+  margin-bottom: 3px;
+  overflow: auto; }
+
+.post-card {
+  background-color: var(--mud-palette-secondary);
+  display: table; }
+
+@media screen and (orientation: portrait) {
+  .post-card {
+    width: 100%; } }
+
+@media screen and (orientation: landscape) {
+  .post-card {
+    margin-left: 20px;
+    max-width: 80%; } }
+
+.post-image {
+  float: left;
+  margin-right: 10px;
+  margin-bottom: 10px;
+  max-width: 100%; }
+
+.post-info {
+  margin-bottom: 15px;
+  min-width: 35rem; }
+
+@media screen and (orientation: portrait) {
+  .post-image {
+    height: auto;
+    width: 50px; } }
+
+.post-image-stretch {
+  display: inline-block;
+  width: 100%; }
+
+.hide-icon {
+  position: relative;
+  top: 0.2em; }
+
+.post-hidden {
+  opacity: 0.5; }
+
+html, body {
+  margin: 0;
+  padding: 0; }
+
+html {
+  height: 100%; }
+
 body {
+  min-height: 100%;
   padding-left: 10px;
-  padding-right: 10px; }
+  padding-right: 10px;
+  overflow-x: hidden; }
 
 #app {
   min-height: 99vh; }
+
+.board-list, .board-list-bottom {
+  width: 100%; }
+
+.board-list-top {
+  position: absolute;
+  top: 15px; }
+
+.board-list-bottom {
+  position: absolute;
+  margin-top: 60px; }
+
+.board-list-link {
+  display: inline-block;
+  position: relative;
+  z-index: 1;
+  padding-top: 1em;
+  padding-bottom: 1em;
+  margin-top: -1em;
+  margin-bottom: -1em; }
+
+.margin-15px {
+  margin: 15px; }
+
+.margin-bottom-15px {
+  margin-bottom: 15px; }
+
+margin-left-10px {
+  margin-left: 10px; }
+
+.mud-link.mud-link-underline-hover:hover {
+  color: var(--mud-palette-error) !important;
+  text-decoration: none !important;
+  cursor: pointer; }
+
+hr {
+  margin: auto;
+  height: 1px;
+  background-color: var(--mud-palette-primary-lighten);
+  border: none; }
+
+hr.w80 {
+  width: 80%; }
+
+hr.w60 {
+  width: 60%; }
+
+hr.w40 {
+  width: 40%; }
